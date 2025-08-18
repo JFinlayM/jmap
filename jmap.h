@@ -25,6 +25,7 @@ typedef struct JMAP_RETURN_ERROR {
 typedef struct USER_FUNCTION_IMPLEMENTATION {
     void (*print_element_callback)(const void*);
     void (*print_error_callback)(const JMAP_RETURN_ERROR);
+    bool (*is_equal_callback)(const void*, const void*);
 } USER_FUNCTION_IMPLEMENTATION;
 
 
@@ -100,30 +101,71 @@ typedef struct JMAP_INTERFACE {
      * @brief Checks if a key exists in the JMAP.
      * @param self Pointer to the JMAP structure.
      * @param key The key to check.
-     * @return JMAP_RETURN structure indicating whether the key exists or an error.
+     * @return JMAP_RETURN structure indicating whether the key exists or an error. The value is a pointer to a boolean.
+     *         The caller is responsible for freeing the returned pointer.
      */
-    JMAP_RETURN (*containsKey)(const JMAP *self, const char *key);
+    JMAP_RETURN (*contains_key)(const JMAP *self, const char *key);
     /**
      * @brief Returns an array of keys in the JMAP.
      * @param self Pointer to the JMAP structure.
      * @return JMAP_RETURN structure containing an array of keys or an error.
      *         The keys are dynamically allocated and should be freed by the caller.
      */
-    JMAP_RETURN (*getKeys)(const JMAP *self);
+    JMAP_RETURN (*get_keys)(const JMAP *self);
     /**
      * @brief Checks if a value exists in the JMAP.
      * @param self Pointer to the JMAP structure.
      * @param value Pointer to the value to check.
-     * @return JMAP_RETURN structure indicating whether the value exists or an error.
+     * @return JMAP_RETURN structure indicating whether the value exists or an error. The value is a pointer to a boolean.
+     *         The caller is responsible for freeing the returned pointer.
      */
-    JMAP_RETURN (*containsValue)(const JMAP *self, const void *value);
+    JMAP_RETURN (*contains_value)(const JMAP *self, const void *value);
     /**
      * @brief Returns an array of values in the JMAP.
      * @param self Pointer to the JMAP structure.
      * @return JMAP_RETURN structure containing an array of values or an error.
      *         The values are dynamically allocated and should be freed by the caller.
      */
-    JMAP_RETURN (*getValues)(const JMAP *self);
+    JMAP_RETURN (*get_values)(const JMAP *self);
+    /**
+     * @brief Iterates over each key-value pair in the JMAP and applies a callback function.
+     * @param self Pointer to the JMAP structure.
+     * @param callback Function to call for each key-value pair.
+     * @param ctx Context pointer passed to the callback function.
+     * @return JMAP_RETURN structure indicating success or error.
+     */
+    JMAP_RETURN (*for_each)(const JMAP *self, void (*callback)(const char *key, void *value, const void *ctx), const void *ctx);
+    /**
+     * @brief Checks if the JMAP is empty.
+     * @param self Pointer to the JMAP structure.
+     * @return JMAP_RETURN structure indicating whether the JMAP is empty or an error.
+     *         The value is a pointer to a boolean indicating emptiness.
+     */
+    JMAP_RETURN (*is_empty)(const JMAP *self);
+    /**
+     * @brief Puts a key-value pair into the JMAP if the key does not already exist.
+     * @param self Pointer to the JMAP structure.
+     * @param key The key to insert.
+     * @param value Pointer to the value to insert.
+     * @return JMAP_RETURN structure indicating success or error.
+     */
+    JMAP_RETURN (*put_if_absent)(JMAP *self, const char *key, const void *value);
+    /**
+     * @brief Removes a key-value pair from the JMAP.
+     * @param self Pointer to the JMAP structure.
+     * @param key The key to remove.
+     * @return JMAP_RETURN structure indicating success or error. The value is NULL if the key was removed successfully.
+     */
+    JMAP_RETURN (*remove)(JMAP *self, const char *key);
+    /**
+     * @brief Removes a key-value pair from the JMAP if the value matches.
+     * @param self Pointer to the JMAP structure.
+     * @param key The key to check and remove.
+     * @param value The value to match for removal.
+     * @return JMAP_RETURN structure indicating success or error. The value is NULL if the key was removed successfully.
+     */
+    JMAP_RETURN (*remove_if_value_match)(JMAP *self, const char *key, const void *value);
+
     /**
      * @brief Frees the JMAP structure and its resources.
      * @param self Pointer to the JMAP structure to free.
