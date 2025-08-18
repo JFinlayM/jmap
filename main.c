@@ -3,6 +3,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+void print_element_callback(const void *value) {
+    if (value) {
+        printf("%d", *(int*)value);
+    }
+}
+
 int main(void) {
     JMAP map;
     JMAP_RETURN ret;
@@ -10,6 +16,7 @@ int main(void) {
     // Initialize the map with int values
     ret = jmap.init(&map, sizeof(int));
     CHECK_RET_FREE(ret);
+    map.user_implementation.print_element_callback = print_element_callback;
 
     printf("Initial capacity: %zu\n", map._length);
 
@@ -21,7 +28,7 @@ int main(void) {
         CHECK_RET_FREE(ret);
 
         printf("Inserted %s -> %d | size=%zu capacity=%zu\n", 
-               key, i * 10, map._elem_nb, map._length);
+               key, i * 10, map._length, map._capacity);
     }
 
     // Retrieve and print them
@@ -46,10 +53,25 @@ int main(void) {
     int updated = RET_GET_VALUE(int, ret);
     printf("\nUpdated key5 -> %d\n", updated);
 
-    printf("\nFinal size: %zu, capacity: %zu\n", map._elem_nb, map._length);
+    printf("\nFinal size: %zu, capacity: %zu\n", map._length, map._capacity);
+    // Print the entire map
+    ret = jmap.print(&map);
+    CHECK_RET_FREE(ret);
+
+    ret = jmap.clone(&map);
+    CHECK_RET(ret);
+    JMAP *clone = RET_GET_POINTER(JMAP, ret);
+    printf("\nCloned map:\n");
+    ret = jmap.print(clone);
+    CHECK_RET_FREE(ret);
+    ret = jmap.clear(clone);
+    CHECK_RET_FREE(ret);
+    ret = jmap.print(clone);
+    CHECK_RET_CONTINUE_FREE(ret); // Should print error
 
     // cleanup
     jmap.free(&map);
+    jmap.free(clone);
 
     return 0;
 }
