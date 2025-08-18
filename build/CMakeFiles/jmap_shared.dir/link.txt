@@ -1,0 +1,1 @@
+/usr/bin/cc -fPIC  -g -Wall -Wextra -pedantic -shared -Wl,-soname,libjmap.so -o libjmap.so CMakeFiles/jmap_shared.dir/jmap.c.o "CMakeFiles/jmap_shared.dir/third_party/murmur3-master/murmur3.c.o" 
