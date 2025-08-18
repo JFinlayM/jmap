@@ -3,6 +3,7 @@
 
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 
 typedef enum {
@@ -181,6 +182,15 @@ extern JMAP_INTERFACE jmap;
 
 #define GET_VALUE(type, val) (*(type*)val)
 
+static inline void* direct_input_impl(size_t size, void *value) {
+    void *p = malloc(size);
+    if (p) memcpy(p, value, size);
+    return p;
+}
+
+
+#define DIRECT_INPUT(type, val) ((type*) direct_input_impl(sizeof(type), &(type){val}))
+
 /**
  * @brief Extracts the value from a JMAP_RETURN, and frees the data pointed by .value if not NULL.
  * @param type The type of the value to extract.
@@ -214,14 +224,6 @@ extern JMAP_INTERFACE jmap;
  * @return The extracted pointer of type `type*`.
  */
 #define RET_GET_POINTER(type, JMAP_RETURN) ((type*)(JMAP_RETURN).value)
-
-/**
- * @brief Converts a value to a pointer of the specified type.
- * @param type The type to convert to.
- * @param value The value to convert.
- * @return A pointer of type `type*` pointing to the value.
- */
-#define TO_POINTER(type, value) (&(type){value})
 
 /**
  * @bried Extract the value from a JMAP_RETURN, and returns a default value if the JMAP_RETURN has no value.

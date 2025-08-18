@@ -11,6 +11,9 @@
         "variant": "c",
         "charconv": "c",
         "chrono": "c",
-        "format": "c"
+        "format": "c",
+        "compare": "c",
+        "memory_resource": "c",
+        "complex": "c"
     }
 }

@@ -1,7 +1,6 @@
 #include "jmap.h"
 #include <stdio.h>
 #include <stdarg.h>
-#include <stdlib.h>
 #include "third_party/murmur3-master/murmur3.h"
 
 #define NEXT_INDEX(index) ((index + 1) & (self->_capacity - 1))
@@ -312,18 +311,18 @@ static JMAP_RETURN jmap_contains_key(const JMAP *self, const char *key) {
     while (probes < self->_capacity) {
         char *k = self->keys[idx];
         if (!k) {
-            JMAP_RETURN ret = { .has_value = false, .has_error = false, .value = TO_POINTER(bool, false) };
+            JMAP_RETURN ret = { .has_value = false, .has_error = false, .value = DIRECT_INPUT(bool, false) };
             return ret;
         }
         if (strcmp(k, key) == 0) {
-            JMAP_RETURN ret = { .has_value = true, .has_error = false, .value = TO_POINTER(bool, true) };
+            JMAP_RETURN ret = { .has_value = true, .has_error = false, .value = DIRECT_INPUT(bool, true) };
             return ret;
         }
         idx = (idx + 1) & (self->_capacity - 1);
         probes++;
     }
 
-    JMAP_RETURN ret = { .has_value = false, .has_error = false, .value = TO_POINTER(bool, false), .ret_source = self };
+    JMAP_RETURN ret = { .has_value = false, .has_error = false, .value = DIRECT_INPUT(bool, false), .ret_source = self };
     return ret;
 }
 
@@ -335,12 +334,12 @@ static JMAP_RETURN jmap_contains_value(const JMAP *self, const void *value) {
 
     for (size_t i = 0; i < self->_capacity; i++) {
         if (self->keys[i] != NULL && memcmp((char*)self->data + i * self->_elem_size, value, self->_elem_size) == 0) {
-            JMAP_RETURN ret = { .has_value = true, .has_error = false, .value = TO_POINTER(bool, true) };
+            JMAP_RETURN ret = { .has_value = true, .has_error = false, .value = DIRECT_INPUT(bool, true) };
             return ret;
         }
     }
 
-    JMAP_RETURN ret = { .has_value = false, .has_error = false, .value = TO_POINTER(bool, false), .ret_source = self  };
+    JMAP_RETURN ret = { .has_value = false, .has_error = false, .value = DIRECT_INPUT(bool, false), .ret_source = self  };
     return ret;
 }
 
@@ -431,7 +430,7 @@ static JMAP_RETURN jmap_is_empty(const JMAP *self) {
     JMAP_RETURN ret;
     ret.has_value = true;
     ret.has_error = false;
-    ret.value = TO_POINTER(bool, self->_length == 0);
+    ret.value = DIRECT_INPUT(bool, self->_length == 0);
     ret.ret_source = self;
     return ret;
 }

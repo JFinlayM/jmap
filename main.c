@@ -36,7 +36,7 @@ int main(void) {
     for (int i = 1; i <= 10; i++) {
         char key[16];
         snprintf(key, sizeof(key), "key%d", i);
-        ret = jmap.put(&map, key, TO_POINTER(int, i * 10));
+        ret = jmap.put(&map, key, DIRECT_INPUT(int, i * 10));
         CHECK_RET_FREE(ret);
 
         printf("Inserted %s -> %d | size=%zu capacity=%zu\n", 
@@ -57,7 +57,7 @@ int main(void) {
     }
 
     // Test updating one key
-    ret = jmap.put(&map, "key5", TO_POINTER(int, 999));
+    ret = jmap.put(&map, "key5", DIRECT_INPUT(int, 999));
     CHECK_RET_FREE(ret);
 
     ret = jmap.get(&map, "key5");
@@ -83,28 +83,28 @@ int main(void) {
 
     ret = jmap.is_empty(clone);
     CHECK_RET(ret);
-    bool is_empty = RET_GET_VALUE(bool, ret);
+    bool is_empty = RET_GET_VALUE_FREE(bool, ret);
     printf("\nClone empty ? %s\n", is_empty ? "true" : "false");
     jmap.free(clone);
 
     ret = jmap.contains_key(&map, "key5");
     CHECK_RET(ret);
-    bool exists = RET_GET_VALUE_SAFE(bool, ret, false);
+    bool exists = RET_GET_VALUE_FREE(bool, ret);
     printf("\nKey 'key5' exists: %s\n", exists ? "true" : "false");
 
     ret = jmap.contains_key(&map, "key0");
     CHECK_RET(ret);
-    exists = RET_GET_VALUE_SAFE(bool, ret, false);
+    exists = RET_GET_VALUE_FREE(bool, ret);
     printf("\nKey 'key0' exists: %s\n", exists ? "true" : "false");
 
-    ret = jmap.contains_value(&map, TO_POINTER(int, 999));
+    ret = jmap.contains_value(&map, DIRECT_INPUT(int, 999));
     CHECK_RET(ret);
-    bool value_exists = RET_GET_VALUE_SAFE(bool, ret, false);
+    bool value_exists = RET_GET_VALUE_FREE(bool, ret);
     printf("\nValue 999 exists: %s\n", value_exists ? "true" : "false");
 
-    ret = jmap.contains_value(&map, TO_POINTER(int, 1000));
+    ret = jmap.contains_value(&map, DIRECT_INPUT(int, 1000));
     CHECK_RET(ret);
-    value_exists = RET_GET_VALUE_SAFE(bool, ret, false);
+    value_exists = RET_GET_VALUE_FREE(bool, ret);
     printf("\nValue 1000 exists: %s\n", value_exists ? "true" : "false");
 
     ret = jmap.get_keys(&map);
@@ -135,13 +135,13 @@ int main(void) {
     CHECK_RET_FREE(ret);
 
     printf("\n=== Put if absent ===\n");
-    ret = jmap.put_if_absent(&map, "key5", TO_POINTER(int, 500));
+    ret = jmap.put_if_absent(&map, "key5", DIRECT_INPUT(int, 500));
     CHECK_RET_CONTINUE(ret);
     printf("\nPut if absent on key5 (should not change):\n");
     ret = jmap.print(&map);
     CHECK_RET_FREE(ret);
 
-    ret = jmap.put_if_absent(&map, "key11", TO_POINTER(int, 1100));
+    ret = jmap.put_if_absent(&map, "key11", DIRECT_INPUT(int, 1100));
     CHECK_RET(ret);
     printf("\nPut if absent on key11 (should add new key):\n");
     ret = jmap.print(&map);
@@ -153,13 +153,13 @@ int main(void) {
     ret = jmap.print(&map);
     CHECK_RET_FREE(ret);
 
-    ret = jmap.remove_if_value_match(&map, "key5", TO_POINTER(int, 999));
+    ret = jmap.remove_if_value_match(&map, "key5", DIRECT_INPUT(int, 999));
     CHECK_RET_CONTINUE(ret);
     printf("\nAfter removing key5 with value 999 (should not remove):\n");
     ret = jmap.print(&map);
     CHECK_RET_FREE(ret);
 
-    ret = jmap.remove_if_value_match(&map, "key5", TO_POINTER(int, 499));
+    ret = jmap.remove_if_value_match(&map, "key5", DIRECT_INPUT(int, 499));
     CHECK_RET(ret);
     printf("\nAfter removing key5 with value 499 (should remove):\n");
     ret = jmap.print(&map);
