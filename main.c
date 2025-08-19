@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include "third_party/murmur3-master/murmur3.h"
 
 void print_element_callback(const void *value) {
     if (value) {
@@ -26,6 +27,20 @@ bool is_between(const char *key, const void *value, const void *ctx) {
     int val = *(int*)value;
     return val >= 20 && val <= 40;
 }
+
+int compare_keys(const void *key_a, const void *value_a, const void *key_b, const void *value_b, const void *ctx) {
+    (void)ctx;      // unused
+    (void)value_a;  // unused
+    (void)value_b;  // unused
+
+    int int_a = atoi((const char*)key_a);
+    int int_b = atoi((const char*)key_b);
+
+    if (int_a < int_b) return -1;
+    if (int_a > int_b) return 1;
+    return 0;
+}
+
 
 int main(void) {
     JMAP map;
@@ -188,6 +203,71 @@ int main(void) {
     JMAP_CHECK_RET_CONTINUE(ret);
     printf("\nAfter removing elements between 20 and 40 (included):\n");
     ret = jmap.print(&map);
+    JMAP_CHECK_RET_FREE(ret);
+
+
+    int data[10] = {2, 3, 3, 5, 1, 2, 3, 5, 6, 7};
+    JMAP jmap_data;
+    ret = jmap.init(&jmap_data, sizeof(int));
+    JMAP_CHECK_RET_FREE(ret);
+    jmap_data.user_implementation.print_element_callback = print_element_callback;
+    jmap_data.user_implementation.is_equal_callback = is_equal_callback;
+    for (int i = 0; i < 10; i++) {
+        char key[10];
+        snprintf(key, sizeof(key), "%d", data[i]);
+        ret = jmap.get(&jmap_data, key);
+        if (ret.error.error_code == JMAP_ELEMENT_NOT_FOUND) {
+            ret = jmap.put(&jmap_data, key, JMAP_DIRECT_INPUT(int, 1));
+            JMAP_CHECK_RET(ret);
+        } else if (ret.has_error) {
+            JMAP_CHECK_RET_FREE(ret);
+        }
+        else {
+            int value = JMAP_RET_GET_VALUE(int, ret);
+            value++;
+            ret = jmap.put(&jmap_data, key, JMAP_DIRECT_INPUT(int, value));
+            JMAP_CHECK_RET(ret);
+        }
+    }
+
+    ret = jmap.clear(&jmap_data);
+    JMAP_CHECK_RET_FREE(ret);
+
+    uint32_t hash;
+    size_t n = 1000000;
+    int random_data[n];
+    for (int i = 0; i < n; i++) {
+        char key[10];
+        snprintf(key, sizeof(key), "%d", i);
+        MurmurHash3_x86_32(key, strlen(key), 42, &hash);
+        random_data[i] = hash & (0x3FF - 1);
+    }
+
+
+
+    for (int i = 0; i < n; i++) {
+        char key[6];
+        snprintf(key, sizeof(key), "%d", random_data[i]);
+        ret = jmap.get(&jmap_data, key);
+        if (ret.error.error_code == JMAP_ELEMENT_NOT_FOUND) {
+            ret = jmap.put(&jmap_data, key, JMAP_DIRECT_INPUT(int, 1));
+            JMAP_CHECK_RET(ret);
+        } else if (ret.has_error) {
+            JMAP_CHECK_RET_FREE(ret);
+        }
+        else {
+            int value = JMAP_RET_GET_VALUE(int, ret);
+            value++;
+            ret = jmap.put(&jmap_data, key, JMAP_DIRECT_INPUT(int, value));
+            JMAP_CHECK_RET(ret);
+        }
+    }
+
+
+    printf("\n=== Final JMAP Data ===\n");
+    ret = jmap.sort(&jmap_data, compare_keys, NULL);
+    JMAP_CHECK_RET_FREE(ret);
+    ret = jmap.print(&jmap_data);
     JMAP_CHECK_RET_FREE(ret);
 
 

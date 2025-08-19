@@ -83,6 +83,7 @@ static JMAP_RETURN jmap_init(JMAP *array, size_t _elem_size) {
     array->_capacity = 16;
     array->_load_factor = 0.75f;
     array->_elem_size = _elem_size;
+    array->_length = 0;
     array->_key_max_length = 50;
     array->data = malloc(array->_capacity * array->_elem_size);
     if (array->data == NULL) {
@@ -418,7 +419,7 @@ static JMAP_RETURN jmap_for_each(const JMAP *self, void (*callback)(const char *
         }
     }
 
-    JMAP_RETURN ok = { .has_value = false, .has_error = false, .value = NULL };
+    JMAP_RETURN ok = { .has_value = false, .has_error = false, .value = NULL, .ret_source = self };
     return ok;
 }
 
@@ -584,9 +585,112 @@ static JMAP_RETURN jmap_remove_if(JMAP *self, bool (*predicate)(const char *key,
         if (rr.has_error) return rr;
     }
 
-    JMAP_RETURN ok = { .has_value = false, .has_error = false, .value = NULL };
+    JMAP_RETURN ok = { .has_value = false, .has_error = false, .value = NULL, .ret_source = self };
     return ok;
 }
+
+static void jmap_quick_sort(
+    char **keys, 
+    void *values, 
+    size_t elem_size, 
+    int (*compare)(const void *key_a, const void *value_a, const void *key_b, const void *value_b, const void *ctx),
+    const void *ctx,
+    int left, 
+    int right
+) {
+    if (left >= right) return;
+
+    int i = left, j = right;
+    char *pivot_key = keys[(left + right) / 2];
+    void *pivot_value = malloc(elem_size);
+    memcpy(pivot_value, (char*)values + ((left + right) / 2) * elem_size, elem_size);
+
+    while (i <= j) {
+        while (compare(keys[i], (char*)values + i * elem_size, pivot_key, pivot_value, ctx) < 0) i++;
+        while (compare(keys[j], (char*)values + j * elem_size, pivot_key, pivot_value, ctx) > 0) j--;
+
+        if (i <= j) {
+            // swap keys
+            char *tmp_key = keys[i];
+            keys[i] = keys[j];
+            keys[j] = tmp_key;
+
+            // swap values
+            void *tmp_value = malloc(elem_size);
+            memcpy(tmp_value, (char*)values + i * elem_size, elem_size);
+            memcpy((char*)values + i * elem_size, (char*)values + j * elem_size, elem_size);
+            memcpy((char*)values + j * elem_size, tmp_value, elem_size);
+            free(tmp_value);
+
+            i++;
+            j--;
+        }
+    }
+
+    free(pivot_value);
+
+    if (left < j) jmap_quick_sort(keys, values, elem_size, compare, ctx, left, j);
+    if (i < right) jmap_quick_sort(keys, values, elem_size, compare, ctx, i, right);
+}
+
+
+static JMAP_RETURN jmap_sort(
+    JMAP *self,
+    int (*compare)(const void *key_a, const void *value_a, const void *key_b, const void *value_b, const void *ctx),
+    const void *ctx
+) {
+    if (!self->data || !self->keys)
+        return create_return_error(self, JMAP_UNINITIALIZED, "JMAP is uninitialized");
+    if (!compare)
+        return create_return_error(self, JMAP_INVALID_ARGUMENT, "Compare function cannot be NULL");
+    if (self->_length == 0)
+        return create_return_error(self, JMAP_EMPTY, "JMAP is empty => no keys to sort");
+
+    size_t count = self->_length;
+    char **keys_array = malloc(count * sizeof(char*));
+    void *values_array = malloc(count * self->_elem_size);
+    if (!keys_array || !values_array) {
+        free(keys_array);
+        free(values_array);
+        return create_return_error(self, JMAP_UNINITIALIZED, "Memory allocation for sorting failed");
+    }
+
+    size_t index = 0;
+    for (size_t i = 0; i < self->_capacity; i++) {
+        if (self->keys[i] != NULL) {
+            keys_array[index] = self->keys[i];
+            memcpy((char*)values_array + index * self->_elem_size,
+                   (char*)self->data + i * self->_elem_size,
+                   self->_elem_size);
+            index++;
+        }
+    }
+
+    jmap_quick_sort(keys_array, values_array, self->_elem_size, compare, ctx, 0, (int)count - 1);
+
+    index = 0;
+    for (size_t i = 0; i < self->_capacity; i++) {
+        if (self->keys[i] != NULL) {
+            self->keys[i] = keys_array[index];
+            memcpy((char*)self->data + i * self->_elem_size,
+                   (char*)values_array + index * self->_elem_size,
+                   self->_elem_size);
+            index++;
+        }
+    }
+
+    free(keys_array);
+    free(values_array);
+
+    return (JMAP_RETURN){
+        .has_value = false,
+        .has_error = false,
+        .value = NULL,
+        .ret_source = self
+    };
+}
+
+
 
 static void jmap_free(JMAP *self) {
     if (self->data != NULL) {
@@ -628,4 +732,5 @@ JMAP_INTERFACE jmap = {
     .remove_if_value_match = jmap_remove_if_value_match,
     .remove_if_value_not_match = jmap_remove_if_value_not_match,
     .remove_if = jmap_remove_if,
+    .sort = jmap_sort,
 };
