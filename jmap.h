@@ -8,12 +8,12 @@
 
 typedef enum {
     JMAP_UNINITIALIZED = 0,
-    DATA_NULL,
-    PRINT_ELEMENT_CALLBACK_UNINTIALIZED,
-    EMPTY_JMAP,
-    ELEMENT_NOT_FOUND,
-    INVALID_ARGUMENT,
-    UNIMPLEMENTED_FUNCTION,
+    JMAP_DATA_NULL,
+    JMAP_PRINT_ELEMENT_CALLBACK_UNINTIALIZED,
+    JMAP_EMPTY,
+    JMAP_ELEMENT_NOT_FOUND,
+    JMAP_INVALID_ARGUMENT,
+    JMAP_UNIMPLEMENTED_FUNCTION,
 } JMAP_ERROR;
 
 typedef struct JMAP_RETURN_ERROR {
@@ -23,11 +23,11 @@ typedef struct JMAP_RETURN_ERROR {
 
 
 
-typedef struct USER_FUNCTION_IMPLEMENTATION {
+typedef struct JMAP_USER_FUNCTION_IMPLEMENTATION {
     void (*print_element_callback)(const void*);
     void (*print_error_callback)(const JMAP_RETURN_ERROR);
     bool (*is_equal_callback)(const void*, const void*);
-} USER_FUNCTION_IMPLEMENTATION;
+} JMAP_USER_FUNCTION_IMPLEMENTATION;
 
 
 
@@ -39,7 +39,7 @@ typedef struct JMAP {
     size_t _capacity;
     float _load_factor; // Load factor for resizing
     size_t _key_max_length; // Maximum length of keys, used for memory allocation
-    USER_FUNCTION_IMPLEMENTATION user_implementation;
+    JMAP_USER_FUNCTION_IMPLEMENTATION user_implementation;
 } JMAP;
 
 typedef struct JMAP_RETURN {
@@ -193,19 +193,16 @@ typedef struct JMAP_INTERFACE {
 extern JMAP_INTERFACE jmap;
 
 
+#define JMAP_GET_VALUE(type, val) (*(type*)val)
 
-
-
-#define GET_VALUE(type, val) (*(type*)val)
-
-static inline void* direct_input_impl(size_t size, void *value) {
+static inline void* jmap_direct_input_impl(size_t size, void *value) {
     void *p = malloc(size);
     if (p) memcpy(p, value, size);
     return p;
 }
 
 
-#define DIRECT_INPUT(type, val) ((type*) direct_input_impl(sizeof(type), &(type){val}))
+#define JMAP_DIRECT_INPUT(type, val) ((type*) jmap_direct_input_impl(sizeof(type), &(type){val}))
 
 /**
  * @brief Extracts the value from a JMAP_RETURN, and frees the data pointed by .value if not NULL.
@@ -213,8 +210,8 @@ static inline void* direct_input_impl(size_t size, void *value) {
  * @param ret The JMAP_RETURN structure to extract the value from.
  * @return The extracted value of type `type`.
  */
-#define RET_GET_VALUE_FREE(type, ret) \
-    ({ type _tmp = *(type*)(ret).value; FREE_RET(ret); _tmp; })
+#define JMAP_RET_GET_VALUE_FREE(type, ret) \
+    ({ type _tmp = *(type*)(ret).value; JMAP_FREE_RET(ret); _tmp; })
 
 /**
  * @brief Extracts the pointer from a JMAP_RETURN.
@@ -222,7 +219,7 @@ static inline void* direct_input_impl(size_t size, void *value) {
  * @param JMAP_RETURN The JMAP_RETURN structure to extract the pointer from.
  * @return The extracted pointer of type `type*`.
  */
-#define RET_GET_POINTER_OWNED(type, JMAP_RETURN) \
+#define JMAP_RET_GET_POINTER_OWNED(type, JMAP_RETURN) \
     ({ type* _tmp = (type*)(JMAP_RETURN).value; (JMAP_RETURN).value = NULL; _tmp; })
 
 /**
@@ -231,9 +228,9 @@ static inline void* direct_input_impl(size_t size, void *value) {
  * @param JMAP_RETURN The JMAP_RETURN structure to extract the value from.
  * @return The extracted value of type `type`.
  */
-#define RET_GET_VALUE(type, JMAP_RETURN) (*(type*)(JMAP_RETURN).value)
+#define JMAP_RET_GET_VALUE(type, JMAP_RETURN) (*(type*)(JMAP_RETURN).value)
 
-static inline void* ret_get_pointer_impl(JMAP_RETURN ret) {
+static inline void* jmap_ret_get_pointer_impl(JMAP_RETURN ret) {
     if (ret.value == NULL) return NULL;
     void *p = ret.value;
     ret.value = NULL; // Clear the value to avoid double free
@@ -246,7 +243,7 @@ static inline void* ret_get_pointer_impl(JMAP_RETURN ret) {
  * @param ret The JMAP_RETURN structure to extract the pointer from.
  * @return The extracted pointer of type `type*`.
  */
-#define RET_GET_POINTER(type, ret) ((type*)ret_get_pointer_impl(ret))
+#define JMAP_RET_GET_POINTER(type, ret) ((type*)jmap_ret_get_pointer_impl(ret))
 
 /**
  * @bried Extract the value from a JMAP_RETURN, and returns a default value if the JMAP_RETURN has no value.
@@ -255,30 +252,30 @@ static inline void* ret_get_pointer_impl(JMAP_RETURN ret) {
  * @param default_value The default value to return if the JMAP_RETURN has no value.
  * @return The extracted value of type `type`, or the default value if the JMAP_RETURN has no value.
  */
-#define RET_GET_VALUE_SAFE(type, ret, default_value) \
+#define JMAP_RET_GET_VALUE_SAFE(type, ret, default_value) \
     ((ret).has_value ? *(type*)((ret).value) : (default_value))
 
 /**
  * @brief Checks if a JMAP_RETURN has an error and prints it if so. Then returns.
  * @param ret The JMAP_RETURN structure to check.
  */
-#define CHECK_RET(ret) \
+#define JMAP_CHECK_RET(ret) \
     if ((ret).has_error) { jmap.print_array_err(ret, __FILE__, __LINE__); return EXIT_FAILURE; }
 
 /**
  * @brief Checks if a JMAP_RETURN has an error and prints it if so, freeing the .value if it exists. Then returns.
  * @param ret The JMAP_RETURN structure to check.
  */
-#define CHECK_RET_FREE(ret) \
-    FREE_RET_VALUE(ret);    \
-    if ((ret).has_error) { jmap.print_array_err(ret, __FILE__, __LINE__); FREE_RET_ERROR(ret); return EXIT_FAILURE; } \
+#define JMAP_CHECK_RET_FREE(ret) \
+    JMAP_FREE_RET_VALUE(ret);    \
+    if ((ret).has_error) { jmap.print_array_err(ret, __FILE__, __LINE__); JMAP_FREE_RET_ERROR(ret); return EXIT_FAILURE; } \
 
 /**
  * @brief Checks if a JMAP_RETURN has an error and prints it if so, freeing the .value if it exists.
  * @param ret The JMAP_RETURN structure to check.
  * @return true if the JMAP_RETURN has an error, false otherwise.
  */
-#define CHECK_RET_CONTINUE(ret) \
+#define JMAP_CHECK_RET_CONTINUE(ret) \
     if ((ret).has_error) { jmap.print_array_err(ret, __FILE__, __LINE__); }
 
 /**
@@ -286,14 +283,14 @@ static inline void* ret_get_pointer_impl(JMAP_RETURN ret) {
  * @param ret The JMAP_RETURN structure to check.
  * @return true if the JMAP_RETURN has an error, false otherwise.
  */
-#define CHECK_RET_CONTINUE_FREE(ret) \
+#define JMAP_CHECK_RET_CONTINUE_FREE(ret) \
     if ((ret).has_error) { jmap.print_array_err(ret, __FILE__, __LINE__); } \
-    FREE_RET(ret);
+    JMAP_FREE_RET(ret);
 
 /**
  * @brief Frees only the value in a JARRAY_RETURN if it has a value.
  */
-#define FREE_RET_VALUE(ret) \
+#define JMAP_FREE_RET_VALUE(ret) \
     do { \
         if ((ret).has_value && (ret).value != NULL) { \
             free((ret).value); \
@@ -304,7 +301,7 @@ static inline void* ret_get_pointer_impl(JMAP_RETURN ret) {
 /**
  * @brief Frees only the error message in a JARRAY_RETURN if it exists.
  */
-#define FREE_RET_ERROR(ret) \
+#define JMAP_FREE_RET_ERROR(ret) \
     do { \
         if ((ret).has_error && (ret).error.error_msg != NULL) { \
             free((ret).error.error_msg); \
@@ -315,10 +312,10 @@ static inline void* ret_get_pointer_impl(JMAP_RETURN ret) {
 /**
  * @brief Frees both the value and error message in a JARRAY_RETURN.
  */
-#define FREE_RET(ret) \
+#define JMAP_FREE_RET(ret) \
     do { \
-        FREE_RET_VALUE(ret); \
-        FREE_RET_ERROR(ret); \
+        JMAP_FREE_RET_VALUE(ret); \
+        JMAP_FREE_RET_ERROR(ret); \
     } while(0)
 
 #define MAX(a, b) a > b ? a : b
