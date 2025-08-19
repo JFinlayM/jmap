@@ -166,6 +166,22 @@ typedef struct JMAP_INTERFACE {
      * @return JMAP_RETURN structure indicating success or error. The value is NULL if the key was removed successfully.
      */
     JMAP_RETURN (*remove_if_value_match)(JMAP *self, const char *key, const void *value);
+    /**
+     * @brief Removes a key-value pair from the JMAP if the value does not match.
+     * @param self Pointer to the JMAP structure.
+     * @param key The key to check and remove.
+     * @param value The value to not match for removal.
+     * @return JMAP_RETURN structure indicating success or error. The value is NULL if the key was removed successfully.
+     */
+    JMAP_RETURN (*remove_if_value_not_match)(JMAP *self, const char *key, const void *value);
+    /**
+     * @brief Removes all key-value pairs that match a predicate function.
+     * @param self Pointer to the JMAP structure.
+     * @param predicate Function to determine if a key-value pair should be removed.
+     * @param ctx Context pointer passed to the predicate function.
+     * @return JMAP_RETURN structure indicating success or error.
+     */
+    JMAP_RETURN (*remove_if)(JMAP *self, bool (*predicate)(const char *key, const void *value, const void *ctx), const void *ctx);
 
     /**
      * @brief Frees the JMAP structure and its resources.
@@ -194,11 +210,11 @@ static inline void* direct_input_impl(size_t size, void *value) {
 /**
  * @brief Extracts the value from a JMAP_RETURN, and frees the data pointed by .value if not NULL.
  * @param type The type of the value to extract.
- * @param JMAP_RETURN The JMAP_RETURN structure to extract the value from.
+ * @param ret The JMAP_RETURN structure to extract the value from.
  * @return The extracted value of type `type`.
  */
-#define RET_GET_VALUE_FREE(type, JMAP_RETURN) \
-    ({ type _tmp = *(type*)(JMAP_RETURN).value; free((JMAP_RETURN).value); _tmp; })
+#define RET_GET_VALUE_FREE(type, ret) \
+    ({ type _tmp = *(type*)(ret).value; FREE_RET(ret); _tmp; })
 
 /**
  * @brief Extracts the pointer from a JMAP_RETURN.
@@ -217,38 +233,45 @@ static inline void* direct_input_impl(size_t size, void *value) {
  */
 #define RET_GET_VALUE(type, JMAP_RETURN) (*(type*)(JMAP_RETURN).value)
 
+static inline void* ret_get_pointer_impl(JMAP_RETURN ret) {
+    if (ret.value == NULL) return NULL;
+    void *p = ret.value;
+    ret.value = NULL; // Clear the value to avoid double free
+    return p;
+}
+
 /**
  * @brief Extracts the pointer from a JMAP_RETURN without freeing it. It is the caller's responsibility to free the pointer if needed.
  * @param type The type of the pointer to extract.
- * @param JMAP_RETURN The JMAP_RETURN structure to extract the pointer from.
+ * @param ret The JMAP_RETURN structure to extract the pointer from.
  * @return The extracted pointer of type `type*`.
  */
-#define RET_GET_POINTER(type, JMAP_RETURN) ((type*)(JMAP_RETURN).value)
+#define RET_GET_POINTER(type, ret) ((type*)ret_get_pointer_impl(ret))
 
 /**
  * @bried Extract the value from a JMAP_RETURN, and returns a default value if the JMAP_RETURN has no value.
  * @param type The type of the value to extract.
- * @param JMAP_RETURN The JMAP_RETURN structure to extract the value from.
+ * @param ret The JMAP_RETURN structure to extract the value from.
  * @param default_value The default value to return if the JMAP_RETURN has no value.
  * @return The extracted value of type `type`, or the default value if the JMAP_RETURN has no value.
  */
-#define RET_GET_VALUE_SAFE(type, JMAP_RETURN, default_value) \
-    ((JMAP_RETURN).has_value ? *(type*)((JMAP_RETURN).value) : (default_value))
+#define RET_GET_VALUE_SAFE(type, ret, default_value) \
+    ((ret).has_value ? *(type*)((ret).value) : (default_value))
 
 /**
  * @brief Checks if a JMAP_RETURN has an error and prints it if so. Then returns.
  * @param ret The JMAP_RETURN structure to check.
  */
 #define CHECK_RET(ret) \
-    if ((ret).has_error) { jmap.print_array_err(ret, __FILE__, __LINE__); return 1; }
+    if ((ret).has_error) { jmap.print_array_err(ret, __FILE__, __LINE__); return EXIT_FAILURE; }
 
 /**
  * @brief Checks if a JMAP_RETURN has an error and prints it if so, freeing the .value if it exists. Then returns.
  * @param ret The JMAP_RETURN structure to check.
  */
 #define CHECK_RET_FREE(ret) \
-    if ((ret).has_value) free((ret).value); \
-    if ((ret).has_error) { jmap.print_array_err(ret, __FILE__, __LINE__);  return 1; }
+    FREE_RET_VALUE(ret);    \
+    if ((ret).has_error) { jmap.print_array_err(ret, __FILE__, __LINE__); FREE_RET_ERROR(ret); return EXIT_FAILURE; } \
 
 /**
  * @brief Checks if a JMAP_RETURN has an error and prints it if so, freeing the .value if it exists.
@@ -264,15 +287,39 @@ static inline void* direct_input_impl(size_t size, void *value) {
  * @return true if the JMAP_RETURN has an error, false otherwise.
  */
 #define CHECK_RET_CONTINUE_FREE(ret) \
-    if ((ret).has_value) free((ret).value); \
-    if ((ret).has_error) { jmap.print_array_err(ret, __FILE__, __LINE__); }
+    if ((ret).has_error) { jmap.print_array_err(ret, __FILE__, __LINE__); } \
+    FREE_RET(ret);
 
 /**
- * @brief Frees the value in a JMAP_RETURN if it has a value.
- * @param ret The JMAP_RETURN structure to free.
+ * @brief Frees only the value in a JARRAY_RETURN if it has a value.
+ */
+#define FREE_RET_VALUE(ret) \
+    do { \
+        if ((ret).has_value && (ret).value != NULL) { \
+            free((ret).value); \
+            (ret).value = NULL; \
+        } \
+    } while(0)
+
+/**
+ * @brief Frees only the error message in a JARRAY_RETURN if it exists.
+ */
+#define FREE_RET_ERROR(ret) \
+    do { \
+        if ((ret).has_error && (ret).error.error_msg != NULL) { \
+            free((ret).error.error_msg); \
+            (ret).error.error_msg = NULL; \
+        } \
+    } while(0)
+
+/**
+ * @brief Frees both the value and error message in a JARRAY_RETURN.
  */
 #define FREE_RET(ret) \
-    if ((ret).has_value && (ret).value != NULL) { free((ret).value); (ret).value = NULL; }
+    do { \
+        FREE_RET_VALUE(ret); \
+        FREE_RET_ERROR(ret); \
+    } while(0)
 
 #define MAX(a, b) a > b ? a : b
 

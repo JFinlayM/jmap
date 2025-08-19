@@ -54,7 +54,6 @@ static void print_array_err(const JMAP_RETURN ret, const char *file, int line) {
     if (ret.error.error_msg) {
         fprintf(stderr, "%s\n", ret.error.error_msg);
     }
-    free((void*)ret.error.error_msg);
 }
 
 static JMAP_RETURN jmap_print(const JMAP *self) {
@@ -527,6 +526,68 @@ static JMAP_RETURN jmap_remove_if_value_match(JMAP *self, const char *key, const
     return create_return_error(self, INVALID_ARGUMENT, "Key \"%s\" does not exist", key);
 }
 
+static JMAP_RETURN jmap_remove_if_value_not_match(JMAP *self, const char *key, const void *value) {
+    if (!self->data || !self->keys)
+        return create_return_error(self, JMAP_UNINITIALIZED, "JMAP is uninitialized");
+    if (!key || key[0] == '\0')
+        return create_return_error(self, INVALID_ARGUMENT, "Key cannot be NULL or empty");
+
+    JMAP_RETURN exists = jmap_contains_key(self, key);
+    if (exists.has_error) return exists;
+
+    if (exists.has_value && RET_GET_VALUE(bool, exists)) {
+        JMAP_RETURN get = jmap_get(self, key);
+        if (get.has_error) return get;
+        if ((bool)self->user_implementation.is_equal_callback ? self->user_implementation.is_equal_callback(get.value, value) : memcmp(get.value, value, self->_elem_size) == 0) {
+            return create_return_error(self, INVALID_ARGUMENT, "Values match for key \"%s\"", key);
+        }
+        memset((char*)self->data + jmap_key_to_index(self, key) * self->_elem_size, 0, self->_elem_size);
+        size_t index = jmap_key_to_index(self, key);
+        size_t start_index = index;
+        while (strcmp(self->keys[index], key) != 0) {
+            index = NEXT_INDEX(index);
+            if (index == start_index) {
+                return create_return_error(self, ELEMENT_NOT_FOUND, "Key \"%s\" not found", key);
+            }
+        }
+        free(self->keys[index]);
+        self->keys[index] = NULL;
+        self->_length--;
+
+        if (self->_length < self->_capacity * self->_load_factor / 4 && self->_capacity > 16) {
+            JMAP_RETURN rr = jmap_resize(self, self->_capacity / 2);
+            if (rr.has_error) return rr;
+        }
+        JMAP_RETURN ok = { .has_value = false, .has_error = false, .value = NULL, .ret_source = self };
+        return ok;
+    }
+    return create_return_error(self, INVALID_ARGUMENT, "Key \"%s\" does not exist", key);
+}
+
+static JMAP_RETURN jmap_remove_if(JMAP *self, bool (*predicate)(const char *key, const void *value, const void *ctx), const void *ctx) {
+    if (!self->data || !self->keys)
+        return create_return_error(self, JMAP_UNINITIALIZED, "JMAP is uninitialized");
+    if (!predicate)
+        return create_return_error(self, INVALID_ARGUMENT, "Predicate function cannot be NULL");
+
+    for (size_t i = 0; i < self->_capacity; i++) {
+        if (self->keys[i] != NULL && predicate(self->keys[i], (char*)self->data + i * self->_elem_size, ctx)) {
+            free(self->keys[i]);
+            self->keys[i] = NULL;
+            memset((char*)self->data + i * self->_elem_size, 0, self->_elem_size);
+            self->_length--;
+        }
+    }
+
+    if (self->_length < self->_capacity * self->_load_factor / 4 && self->_capacity > 16) {
+        JMAP_RETURN rr = jmap_resize(self, self->_capacity / 2);
+        if (rr.has_error) return rr;
+    }
+
+    JMAP_RETURN ok = { .has_value = false, .has_error = false, .value = NULL };
+    return ok;
+}
+
 static void jmap_free(JMAP *self) {
     if (self->data != NULL) {
         free(self->data);
@@ -565,4 +626,6 @@ JMAP_INTERFACE jmap = {
     .put_if_absent = jmap_put_if_absent,
     .remove = jmap_remove,
     .remove_if_value_match = jmap_remove_if_value_match,
+    .remove_if_value_not_match = jmap_remove_if_value_not_match,
+    .remove_if = jmap_remove_if,
 };

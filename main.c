@@ -20,6 +20,13 @@ bool is_equal_callback(const void *a, const void *b) {
     return *(int*)a == *(int*)b;
 }
 
+bool is_between(const char *key, const void *value, const void *ctx) {
+    (void)ctx; // Unused context pointer
+    (void)key; // Unused key pointer
+    int val = *(int*)value;
+    return val >= 20 && val <= 40;
+}
+
 int main(void) {
     JMAP map;
     JMAP_RETURN ret;
@@ -162,6 +169,24 @@ int main(void) {
     ret = jmap.remove_if_value_match(&map, "key5", DIRECT_INPUT(int, 499));
     CHECK_RET(ret);
     printf("\nAfter removing key5 with value 499 (should remove):\n");
+    ret = jmap.print(&map);
+    CHECK_RET_FREE(ret);
+
+    ret = jmap.remove_if_value_not_match(&map, "key8", DIRECT_INPUT(int, 40));
+    CHECK_RET_CONTINUE(ret);
+    printf("\nAfter removing key8 with value not matching 40 (should not remove):\n");
+    ret = jmap.print(&map);
+    CHECK_RET_FREE(ret);
+
+    ret = jmap.remove_if_value_not_match(&map, "key8", DIRECT_INPUT(int, 42));
+    CHECK_RET(ret);
+    printf("\nAfter removing key8 with value not matching 42 (should remove):\n");
+    ret = jmap.print(&map);
+    CHECK_RET_FREE(ret);
+
+    ret = jmap.remove_if(&map, is_between, NULL);
+    CHECK_RET_CONTINUE(ret);
+    printf("\nAfter removing elements between 20 and 40 (included):\n");
     ret = jmap.print(&map);
     CHECK_RET_FREE(ret);
 
