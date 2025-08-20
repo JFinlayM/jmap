@@ -184,15 +184,6 @@ typedef struct JMAP_INTERFACE {
      */
     JMAP_RETURN (*remove_if)(JMAP *self, bool (*predicate)(const char *key, const void *value, const void *ctx), const void *ctx);
     /**
-     * @brief Sorts the JMAP based on a comparison function.
-     * @param self Pointer to the JMAP structure.
-     * @param compare Function to compare two key-value pairs.
-     * @param ctx Context pointer passed to the comparison function.
-     * @return JMAP_RETURN structure indicating success or error.
-     */
-    JMAP_RETURN (*sort)(JMAP *self, int (*compare)(const void *key_a, const void *value_a, const void *key_b, const void *value_b, const void *ctx), const void *ctx);
-    int (*histogram)(const int *input, size_t input_length, int *x, int *y, size_t *length);
-    /**
      * @brief Frees the JMAP structure and its resources.
      * @param self Pointer to the JMAP structure to free.
      */

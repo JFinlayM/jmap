@@ -42,6 +42,7 @@ int compare_keys(const void *key_a, const void *value_a, const void *key_b, cons
 }
 
 
+
 int main(void) {
     JMAP map;
     JMAP_RETURN ret;
@@ -227,7 +228,7 @@ int main(void) {
 
 
     for (int i = 0; i < n; i++) {
-        char key[6];
+        char key[10];
         snprintf(key, sizeof(key), "%d", random_data[i]);
         ret = jmap.get(&jmap_data, key);
         if (ret.error.error_code == JMAP_ELEMENT_NOT_FOUND) {
@@ -246,37 +247,12 @@ int main(void) {
 
     printf("\n=== Final JMAP Data ===\n");
 
-    ret = jmap.get(&jmap_data, "500");
-    JMAP_CHECK_RET(ret);
-    int value = JMAP_RET_GET_VALUE(int, ret);
-    printf("\nValue for key '500': %d\n", value);
-    ret = jmap.sort(&jmap_data, compare_keys, NULL);
-    JMAP_CHECK_RET_FREE(ret);
     ret = jmap.print(&jmap_data);
     JMAP_CHECK_RET_FREE(ret);
 
-    jmap.free(&jmap_data);
-
-    /*int *keys_array = NULL;
-    int *values_array = NULL;
-    size_t count;
-    
-    if (jmap.histogram(random_data, n, &keys_array, &values_array, &count) != EXIT_SUCCESS) {
-        fprintf(stderr, "Error creating histogram\n");
-        return EXIT_FAILURE;
-    }
-    
-    printf("\n=== Histogram ===\n");
-    for (size_t i = 0; i < count; i++) {
-        printf("Key: %d, Value: %d\n", keys_array[i], values_array[i]);
-    }
-    
-    free(keys_array);
-    free(values_array);*/
-    
-
     // cleanup
     jmap.free(&map);
+    jmap.free(&jmap_data);
 
     return 0;
 }
