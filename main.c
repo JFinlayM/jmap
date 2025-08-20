@@ -205,30 +205,11 @@ int main(void) {
     ret = jmap.print(&map);
     JMAP_CHECK_RET_FREE(ret);
 
-
-    int data[10] = {2, 3, 3, 5, 1, 2, 3, 5, 6, 7};
     JMAP jmap_data;
     ret = jmap.init(&jmap_data, sizeof(int));
     JMAP_CHECK_RET_FREE(ret);
     jmap_data.user_implementation.print_element_callback = print_element_callback;
     jmap_data.user_implementation.is_equal_callback = is_equal_callback;
-    for (int i = 0; i < 10; i++) {
-        char key[10];
-        snprintf(key, sizeof(key), "%d", data[i]);
-        ret = jmap.get(&jmap_data, key);
-        if (ret.error.error_code == JMAP_ELEMENT_NOT_FOUND) {
-            ret = jmap.put(&jmap_data, key, JMAP_DIRECT_INPUT(int, 1));
-            JMAP_CHECK_RET(ret);
-        } else if (ret.has_error) {
-            JMAP_CHECK_RET_FREE(ret);
-        }
-        else {
-            int value = JMAP_RET_GET_VALUE(int, ret);
-            value++;
-            ret = jmap.put(&jmap_data, key, JMAP_DIRECT_INPUT(int, value));
-            JMAP_CHECK_RET(ret);
-        }
-    }
 
     ret = jmap.clear(&jmap_data);
     JMAP_CHECK_RET_FREE(ret);
@@ -240,7 +221,7 @@ int main(void) {
         char key[10];
         snprintf(key, sizeof(key), "%d", i);
         MurmurHash3_x86_32(key, strlen(key), 42, &hash);
-        random_data[i] = hash & (0x3FF - 1);
+        random_data[i] = hash & 0x3FF;
     }
 
 
@@ -263,13 +244,36 @@ int main(void) {
         }
     }
 
-
     printf("\n=== Final JMAP Data ===\n");
+
+    ret = jmap.get(&jmap_data, "500");
+    JMAP_CHECK_RET(ret);
+    int value = JMAP_RET_GET_VALUE(int, ret);
+    printf("\nValue for key '500': %d\n", value);
     ret = jmap.sort(&jmap_data, compare_keys, NULL);
     JMAP_CHECK_RET_FREE(ret);
     ret = jmap.print(&jmap_data);
     JMAP_CHECK_RET_FREE(ret);
 
+    jmap.free(&jmap_data);
+
+    /*int *keys_array = NULL;
+    int *values_array = NULL;
+    size_t count;
+    
+    if (jmap.histogram(random_data, n, &keys_array, &values_array, &count) != EXIT_SUCCESS) {
+        fprintf(stderr, "Error creating histogram\n");
+        return EXIT_FAILURE;
+    }
+    
+    printf("\n=== Histogram ===\n");
+    for (size_t i = 0; i < count; i++) {
+        printf("Key: %d, Value: %d\n", keys_array[i], values_array[i]);
+    }
+    
+    free(keys_array);
+    free(values_array);*/
+    
 
     // cleanup
     jmap.free(&map);

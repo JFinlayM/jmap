@@ -56,6 +56,25 @@ static void print_array_err(const JMAP_RETURN ret, const char *file, int line) {
     }
 }
 
+
+static void jmap_free(JMAP *self) {
+    if (self->data != NULL) {
+        free(self->data);
+        self->data = NULL;
+    }
+    if (self->keys != NULL) {
+        for (size_t i = 0; i < self->_capacity; i++) {
+            free(self->keys[i]);
+        }
+        free(self->keys);
+        self->keys = NULL;
+    }
+    self->_length = 0;
+    self->_capacity = 0;
+    self->_elem_size = 0;
+    self->_key_max_length = 0;
+}
+
 static JMAP_RETURN jmap_print(const JMAP *self) {
     if (!self->data || !self->keys)
         return create_return_error(self, JMAP_UNINITIALIZED, "JMAP is uninitialized");
@@ -690,25 +709,77 @@ static JMAP_RETURN jmap_sort(
     };
 }
 
+static int compare_keys(const void *key_a, const void *value_a, const void *key_b, const void *value_b, const void *ctx) {
+    (void)ctx;      // unused
+    (void)value_a;  // unused
+    (void)value_b;  // unused
 
+    int int_a = atoi((const char*)key_a);
+    int int_b = atoi((const char*)key_b);
 
-static void jmap_free(JMAP *self) {
-    if (self->data != NULL) {
-        free(self->data);
-        self->data = NULL;
-    }
-    if (self->keys != NULL) {
-        for (size_t i = 0; i < self->_capacity; i++) {
-            free(self->keys[i]);
-        }
-        free(self->keys);
-        self->keys = NULL;
-    }
-    self->_length = 0;
-    self->_capacity = 0;
-    self->_elem_size = 0;
-    self->_key_max_length = 0;
+    if (int_a < int_b) return -1;
+    if (int_a > int_b) return 1;
+    return 0;
 }
+
+static int jmap_histogram(const int *input, size_t input_length, int **x, int **y, size_t *length) {
+    JMAP histogram;
+    JMAP_RETURN ret = jmap_init(&histogram, sizeof(int));
+    if (ret.has_error) return EXIT_FAILURE;
+
+    for (int i = 0; i < input_length; i++) {
+        char key[10];
+        snprintf(key, sizeof(key), "%d", input[i]);
+        ret = jmap.get(&histogram, key);
+        if (ret.error.error_code == JMAP_ELEMENT_NOT_FOUND) {
+            ret = jmap.put(&histogram, key, JMAP_DIRECT_INPUT(int, 1));
+            JMAP_CHECK_RET_FREE(ret);
+        } else if (ret.has_error) {
+            return EXIT_FAILURE;
+        } else {
+            int value = JMAP_RET_GET_VALUE(int, ret);
+            value++;
+            ret = jmap.put(&histogram, key, JMAP_DIRECT_INPUT(int, value));
+            JMAP_CHECK_RET_FREE(ret);
+        }
+    }
+
+    ret = jmap_sort(&histogram, compare_keys, NULL);
+    if (ret.has_error) {
+        jmap_free(&histogram);
+        return EXIT_FAILURE;
+    }
+
+    ret = jmap.get_keys(&histogram);
+    JMAP_CHECK_RET(ret);
+    char **keys = JMAP_RET_GET_POINTER(char*, ret);
+
+    *x = malloc(histogram._length * sizeof(int));
+    if (!*x) {
+        jmap_free(&histogram);
+        return EXIT_FAILURE;
+    }
+
+    for (size_t i = 0; i < histogram._length; i++) {
+        (*x)[i] = atoi(keys[i]);
+    }
+    free(keys);
+
+    ret = jmap.get_values(&histogram);
+    JMAP_CHECK_RET(ret);
+    *y = JMAP_RET_GET_POINTER(int, ret);
+    if (!*y) {
+        free(*x);
+        jmap_free(&histogram);
+        return EXIT_FAILURE;
+    }
+
+    *length = histogram._length;
+    jmap_free(&histogram);
+    return EXIT_SUCCESS;
+}
+
+
 
 
 JMAP_INTERFACE jmap = {
@@ -733,4 +804,5 @@ JMAP_INTERFACE jmap = {
     .remove_if_value_not_match = jmap_remove_if_value_not_match,
     .remove_if = jmap_remove_if,
     .sort = jmap_sort,
+    .histogram = jmap_histogram,
 };
