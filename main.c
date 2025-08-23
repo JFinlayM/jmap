@@ -49,7 +49,7 @@ int main(void) {
 
     // Initialize the map with int values
     ret = jmap.init(&map, sizeof(int));
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
     map.user_implementation.print_element_callback = print_element_callback;
     map.user_implementation.is_equal_callback = is_equal_callback;
 
@@ -60,7 +60,7 @@ int main(void) {
         char key[16];
         snprintf(key, sizeof(key), "key%d", i);
         ret = jmap.put(&map, key, JMAP_DIRECT_INPUT(int, i * 10));
-        JMAP_CHECK_RET_FREE(ret);
+        if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
         printf("Inserted %s -> %d | size=%zu capacity=%zu\n", 
                key, i * 10, map._length, map._capacity);
@@ -73,7 +73,7 @@ int main(void) {
         snprintf(key, sizeof(key), "key%d", i);
 
         ret = jmap.get(&map, key);
-        JMAP_CHECK_RET(ret);
+        if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
 
         int value = JMAP_RET_GET_VALUE(int, ret);
         printf("%s -> %d\n", key, value);
@@ -81,57 +81,57 @@ int main(void) {
 
     // Test updating one key
     ret = jmap.put(&map, "key5", JMAP_DIRECT_INPUT(int, 999));
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
     ret = jmap.get(&map, "key5");
-    JMAP_CHECK_RET(ret);
+    if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
     int updated = JMAP_RET_GET_VALUE(int, ret);
     printf("\nUpdated key5 -> %d\n", updated);
 
     printf("\nFinal size: %zu, capacity: %zu\n", map._length, map._capacity);
     // Print the entire map
     ret = jmap.print(&map);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
     ret = jmap.clone(&map);
-    JMAP_CHECK_RET(ret);
+    if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
     JMAP *clone = JMAP_RET_GET_POINTER(JMAP, ret);
     printf("\nCloned map:\n");
     ret = jmap.print(clone);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
     ret = jmap.clear(clone);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
     ret = jmap.print(clone);
-    JMAP_CHECK_RET_CONTINUE(ret); // Should print error
+    JMAP_CHECK_RET(ret); // Should print error
 
     ret = jmap.is_empty(clone);
-    JMAP_CHECK_RET(ret);
+    if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
     bool is_empty = JMAP_RET_GET_VALUE_FREE(bool, ret);
     printf("\nClone empty ? %s\n", is_empty ? "true" : "false");
     jmap.free(clone);
 
     ret = jmap.contains_key(&map, "key5");
-    JMAP_CHECK_RET(ret);
+    if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
     bool exists = JMAP_RET_GET_VALUE_FREE(bool, ret);
     printf("\nKey 'key5' exists: %s\n", exists ? "true" : "false");
 
     ret = jmap.contains_key(&map, "key0");
-    JMAP_CHECK_RET(ret);
+    if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
     exists = JMAP_RET_GET_VALUE_FREE(bool, ret);
     printf("\nKey 'key0' exists: %s\n", exists ? "true" : "false");
 
     ret = jmap.contains_value(&map, JMAP_DIRECT_INPUT(int, 999));
-    JMAP_CHECK_RET(ret);
+    if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
     bool value_exists = JMAP_RET_GET_VALUE_FREE(bool, ret);
     printf("\nValue 999 exists: %s\n", value_exists ? "true" : "false");
 
     ret = jmap.contains_value(&map, JMAP_DIRECT_INPUT(int, 1000));
-    JMAP_CHECK_RET(ret);
+    if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
     value_exists = JMAP_RET_GET_VALUE_FREE(bool, ret);
     printf("\nValue 1000 exists: %s\n", value_exists ? "true" : "false");
 
     ret = jmap.get_keys(&map);
-    JMAP_CHECK_RET(ret);
+    if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
     char **keys = JMAP_RET_GET_POINTER(char*, ret);
     printf("\nKeys in the map:\n");
     for (size_t i = 0; i < map._length; i++) {
@@ -143,7 +143,7 @@ int main(void) {
     free(keys); // Free the keys array itself
 
     ret = jmap.get_values(&map);
-    JMAP_CHECK_RET(ret);
+    if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
     int *values = JMAP_RET_GET_POINTER(int, ret);
     printf("\nValues in the map:\n");
     for (size_t i = 0; i < map._length; i++) {
@@ -153,67 +153,67 @@ int main(void) {
 
     printf("\n=== For each element, divide by two ===\n");
     ret = jmap.for_each(&map, divide_by_two_callback, NULL);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
     ret = jmap.print(&map);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
     printf("\n=== Put if absent ===\n");
     ret = jmap.put_if_absent(&map, "key5", JMAP_DIRECT_INPUT(int, 500));
-    JMAP_CHECK_RET_CONTINUE(ret);
+    JMAP_CHECK_RET(ret);
     printf("\nPut if absent on key5 (should not change):\n");
     ret = jmap.print(&map);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
     ret = jmap.put_if_absent(&map, "key11", JMAP_DIRECT_INPUT(int, 1100));
-    JMAP_CHECK_RET(ret);
+    if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
     printf("\nPut if absent on key11 (should add new key):\n");
     ret = jmap.print(&map);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
     ret = jmap.remove(&map, "key11");
-    JMAP_CHECK_RET(ret);
+    if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
     printf("\nAfter removing key11:\n");
     ret = jmap.print(&map);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
     ret = jmap.remove_if_value_match(&map, "key5", JMAP_DIRECT_INPUT(int, 999));
-    JMAP_CHECK_RET_CONTINUE(ret);
+    JMAP_CHECK_RET(ret);
     printf("\nAfter removing key5 with value 999 (should not remove):\n");
     ret = jmap.print(&map);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
     ret = jmap.remove_if_value_match(&map, "key5", JMAP_DIRECT_INPUT(int, 499));
-    JMAP_CHECK_RET(ret);
+    if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
     printf("\nAfter removing key5 with value 499 (should remove):\n");
     ret = jmap.print(&map);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
     ret = jmap.remove_if_value_not_match(&map, "key8", JMAP_DIRECT_INPUT(int, 40));
-    JMAP_CHECK_RET_CONTINUE(ret);
+    JMAP_CHECK_RET(ret);
     printf("\nAfter removing key8 with value not matching 40 (should not remove):\n");
     ret = jmap.print(&map);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
     ret = jmap.remove_if_value_not_match(&map, "key8", JMAP_DIRECT_INPUT(int, 42));
-    JMAP_CHECK_RET(ret);
+    if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
     printf("\nAfter removing key8 with value not matching 42 (should remove):\n");
     ret = jmap.print(&map);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
     ret = jmap.remove_if(&map, is_between, NULL);
-    JMAP_CHECK_RET_CONTINUE(ret);
+    JMAP_CHECK_RET(ret);
     printf("\nAfter removing elements between 20 and 40 (included):\n");
     ret = jmap.print(&map);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
     JMAP jmap_data;
     ret = jmap.init(&jmap_data, sizeof(int));
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
     jmap_data.user_implementation.print_element_callback = print_element_callback;
     jmap_data.user_implementation.is_equal_callback = is_equal_callback;
 
     ret = jmap.clear(&jmap_data);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
     uint32_t hash;
     size_t n = 1000000;
@@ -233,22 +233,22 @@ int main(void) {
         ret = jmap.get(&jmap_data, key);
         if (ret.error.error_code == JMAP_ELEMENT_NOT_FOUND) {
             ret = jmap.put(&jmap_data, key, JMAP_DIRECT_INPUT(int, 1));
-            JMAP_CHECK_RET(ret);
+            if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
         } else if (ret.has_error) {
-            JMAP_CHECK_RET_FREE(ret);
+            if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
         }
         else {
             int value = JMAP_RET_GET_VALUE(int, ret);
             value++;
             ret = jmap.put(&jmap_data, key, JMAP_DIRECT_INPUT(int, value));
-            JMAP_CHECK_RET(ret);
+            if (JMAP_CHECK_RET(ret)) return EXIT_FAILURE;
         }
     }
 
     printf("\n=== Final JMAP Data ===\n");
 
     ret = jmap.print(&jmap_data);
-    JMAP_CHECK_RET_FREE(ret);
+    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
 
     // cleanup
     jmap.free(&map);

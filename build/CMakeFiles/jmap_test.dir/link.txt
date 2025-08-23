@@ -1,1 +1,1 @@
-/usr/bin/cc  -g -Wall -Wextra -pedantic CMakeFiles/jmap_test.dir/main.c.o -o jmap_test  libjmap.a 
+/usr/bin/cc  -g -Wall -Wextra CMakeFiles/jmap_test.dir/main.c.o -o jmap_test  libjmap.a 

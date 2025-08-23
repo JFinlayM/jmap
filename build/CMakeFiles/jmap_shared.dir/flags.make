@@ -6,5 +6,5 @@ C_DEFINES = -Djmap_shared_EXPORTS
 
 C_INCLUDES = -I"/home/jonathan/Documents/Projets de codage/C/jmap"
 
-C_FLAGS =  -g -Wall -Wextra -pedantic -std=gnu11 -fPIC
+C_FLAGS =  -g -Wall -Wextra -std=gnu11 -fPIC
 
