@@ -1,3 +1,0 @@
-/usr/local/lib/libjmap.a
-/usr/local/lib/libjmap.so
-/usr/local/include/jmap.h
