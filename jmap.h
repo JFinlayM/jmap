@@ -5,9 +5,14 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#define MAX_ERR_MSG_LENGTH 100
+
+
+typedef struct JMAP JMAP;
 
 typedef enum {
-    JMAP_UNINITIALIZED = 0,
+    JMAP_NO_ERROR = 0,
+    JMAP_UNINITIALIZED,
     JMAP_DATA_NULL,
     JMAP_PRINT_ELEMENT_CALLBACK_UNINTIALIZED,
     JMAP_EMPTY,
@@ -16,20 +21,37 @@ typedef enum {
     JMAP_UNIMPLEMENTED_FUNCTION,
 } JMAP_ERROR;
 
-typedef struct JMAP_RETURN_ERROR {
+typedef struct JMAP_RETURN {
     JMAP_ERROR error_code;
-    char* error_msg;
-} JMAP_RETURN_ERROR;
+    char error_msg[MAX_ERR_MSG_LENGTH];
+    bool has_error;
+    const JMAP* ret_source;
+} JMAP_RETURN;
 
-
-
-typedef struct JMAP_USER_FUNCTION_IMPLEMENTATION {
+/**
+ * @brief User-defined function implementations for JMAP.
+ * This structure contains pointers to user-defined functions for printing, comparing, and checking equality of elements.
+ * These functions can be set by the user to customize the behavior of the JMAP. These functions are used by the JMAP_INTERFACE to perform operations on the elements.
+ */
+typedef struct JMAP_USER_CALLBACK_IMPLEMENTATION {
+    // Function to print an element. This function is mandatory if you want to use the jmap.print function.
     void (*print_element_callback)(const void*);
-    void (*print_error_callback)(const JMAP_RETURN_ERROR);
-    bool (*is_equal_callback)(const void*, const void*);
-    int (*compare_pairs_callback)(const void *key_a, const void *value_a, const void *key_b, const void *value_b, const void *ctx);
-} JMAP_USER_FUNCTION_IMPLEMENTATION;
+    // Function to convert an element to a string. This function is NOT mandatory but can be useful for functions like join.
+    char *(*element_to_string)(const void*);
+    // Function to compare two elements. This function is mandatory if you want to use the jmap.sort function.
+    int (*compare)(const void*, const void*);
+    // Function to check if two elements are equal. This function is mandatory if you want to use the jmap.contains, jmap.find_first, jmap.indexes_of functions.
+    bool (*is_equal)(const void*, const void*);
+} JMAP_USER_CALLBACK_IMPLEMENTATION;
 
+typedef struct JMAP_USER_OVERRIDE_IMPLEMENTATION {
+    // Override function to print errors. This function is NOT mandatory.
+    void (*print_error_override)(const JMAP_RETURN);
+    // Override function to print the whole array. This function is NOT mandatory.
+    void (*print_array_override)(const JMAP*);
+    // This function is MANDATORY if storing pointers (Example : strdup for char*).
+    void *(*copy_elem_override)(const void*);
+}JMAP_USER_OVERRIDE_IMPLEMENTATION;
 
 
 typedef struct JMAP {
@@ -40,29 +62,22 @@ typedef struct JMAP {
     size_t _capacity;
     float _load_factor; // Load factor for resizing
     size_t _key_max_length; // Maximum length of keys, used for memory allocation
-    JMAP_USER_FUNCTION_IMPLEMENTATION user_implementation;
+    JMAP_USER_CALLBACK_IMPLEMENTATION user_callbacks;
+    JMAP_USER_OVERRIDE_IMPLEMENTATION user_overrides;
 } JMAP;
 
-typedef struct JMAP_RETURN {
-    union {
-        void* value;
-        JMAP_RETURN_ERROR error;
-    };
-    bool has_value;
-    bool has_error;
-    const JMAP* ret_source; // Pointer to the JMAP structure that generated this return
-} JMAP_RETURN;
+
 
 typedef struct JMAP_INTERFACE {
-    void (*print_array_err)(const JMAP_RETURN ret, const char *file, int line);
-    JMAP_RETURN (*print)(const JMAP *self);
+    void (*print_array_err)(const char *file, int line);
+    void (*print)(const JMAP *self);
     /**
      * @brief Initializes the JMAP structure.
      * @param self Pointer to the JMAP structure to initialize.
      * @param elem_size Size of the elements to be stored in the JMAP.
      * @return JMAP_RETURN structure indicating success or error.
      */
-    JMAP_RETURN (*init)(JMAP *self, size_t elem_size);
+    void (*init)(JMAP *self, size_t elem_size);
     /**
      * @brief Inserts a key-value pair into the JMAP.
      * @param self Pointer to the JMAP structure.
@@ -70,20 +85,20 @@ typedef struct JMAP_INTERFACE {
      * @param value Pointer to the value to insert.
      * @return JMAP_RETURN structure indicating success or error.
      */
-    JMAP_RETURN (*put)(JMAP *self, const char *key, const void *value);
+    void (*put)(JMAP *self, const char *key, const void *value);
     /**
      * @brief Retrieves a value by its key from the JMAP.
      * @param self Pointer to the JMAP structure.
      * @param key The key to retrieve.
      * @return JMAP_RETURN structure containing the value or error.
      */
-    JMAP_RETURN (*get)(const JMAP *self, const char *key);
+    void* (*get)(const JMAP *self, const char *key);
     /**
      * @brief Empties the JMAP, removing all key-value pairs.
      * @param self Pointer to the JMAP structure.
      * @return JMAP_RETURN structure indicating success or error.
      */
-    JMAP_RETURN (*clear)(JMAP *self);
+    void (*clear)(JMAP *self);
     /**
      * @brief Resizes the JMAP to a new length.
      * @note The new length must be a power of 2 and greater than the current length.
@@ -92,13 +107,13 @@ typedef struct JMAP_INTERFACE {
      * @param new_length The new length for the JMAP.
      * @return JMAP_RETURN structure indicating success or error.
      */
-    JMAP_RETURN (*resize)(JMAP *self, size_t new_length);
+    void (*resize)(JMAP *self, size_t new_length);
     /**
      * @brief Clones the JMAP structure.
      * @param self Pointer to the JMAP structure to clone.
      * @return JMAP_RETURN structure containing the cloned JMAP or error.
      */
-    JMAP_RETURN (*clone)(const JMAP *self);
+    JMAP (*clone)(const JMAP *self);
     /**
      * @brief Checks if a key exists in the JMAP.
      * @param self Pointer to the JMAP structure.
@@ -106,14 +121,14 @@ typedef struct JMAP_INTERFACE {
      * @return JMAP_RETURN structure indicating whether the key exists or an error. The value is a pointer to a boolean.
      *         The caller is responsible for freeing the returned pointer.
      */
-    JMAP_RETURN (*contains_key)(const JMAP *self, const char *key);
+    bool (*contains_key)(const JMAP *self, const char *key);
     /**
      * @brief Returns an array of keys in the JMAP.
      * @param self Pointer to the JMAP structure.
      * @return JMAP_RETURN structure containing an array of keys or an error.
      *         The keys are dynamically allocated and should be freed by the caller.
      */
-    JMAP_RETURN (*get_keys)(const JMAP *self);
+    char** (*get_keys)(const JMAP *self);
     /**
      * @brief Checks if a value exists in the JMAP.
      * @param self Pointer to the JMAP structure.
@@ -121,14 +136,14 @@ typedef struct JMAP_INTERFACE {
      * @return JMAP_RETURN structure indicating whether the value exists or an error. The value is a pointer to a boolean.
      *         The caller is responsible for freeing the returned pointer.
      */
-    JMAP_RETURN (*contains_value)(const JMAP *self, const void *value);
+    bool (*contains_value)(const JMAP *self, const void *value);
     /**
      * @brief Returns an array of values in the JMAP.
      * @param self Pointer to the JMAP structure.
      * @return JMAP_RETURN structure containing an array of values or an error.
      *         The values are dynamically allocated and should be freed by the caller.
      */
-    JMAP_RETURN (*get_values)(const JMAP *self);
+    void* (*get_values)(const JMAP *self);
     /**
      * @brief Iterates over each key-value pair in the JMAP and applies a callback function.
      * @param self Pointer to the JMAP structure.
@@ -136,14 +151,14 @@ typedef struct JMAP_INTERFACE {
      * @param ctx Context pointer passed to the callback function.
      * @return JMAP_RETURN structure indicating success or error.
      */
-    JMAP_RETURN (*for_each)(const JMAP *self, void (*callback)(const char *key, void *value, const void *ctx), const void *ctx);
+    void (*for_each)(const JMAP *self, void (*callback)(const char *key, void *value, const void *ctx), const void *ctx);
     /**
      * @brief Checks if the JMAP is empty.
      * @param self Pointer to the JMAP structure.
      * @return JMAP_RETURN structure indicating whether the JMAP is empty or an error.
      *         The value is a pointer to a boolean indicating emptiness.
      */
-    JMAP_RETURN (*is_empty)(const JMAP *self);
+    bool (*is_empty)(const JMAP *self);
     /**
      * @brief Puts a key-value pair into the JMAP if the key does not already exist.
      * @param self Pointer to the JMAP structure.
@@ -151,14 +166,14 @@ typedef struct JMAP_INTERFACE {
      * @param value Pointer to the value to insert.
      * @return JMAP_RETURN structure indicating success or error.
      */
-    JMAP_RETURN (*put_if_absent)(JMAP *self, const char *key, const void *value);
+    void (*put_if_absent)(JMAP *self, const char *key, const void *value);
     /**
      * @brief Removes a key-value pair from the JMAP.
      * @param self Pointer to the JMAP structure.
      * @param key The key to remove.
      * @return JMAP_RETURN structure indicating success or error. The value is NULL if the key was removed successfully.
      */
-    JMAP_RETURN (*remove)(JMAP *self, const char *key);
+    void (*remove)(JMAP *self, const char *key);
     /**
      * @brief Removes a key-value pair from the JMAP if the value matches.
      * @param self Pointer to the JMAP structure.
@@ -166,7 +181,7 @@ typedef struct JMAP_INTERFACE {
      * @param value The value to match for removal.
      * @return JMAP_RETURN structure indicating success or error. The value is NULL if the key was removed successfully.
      */
-    JMAP_RETURN (*remove_if_value_match)(JMAP *self, const char *key, const void *value);
+    void (*remove_if_value_match)(JMAP *self, const char *key, const void *value);
     /**
      * @brief Removes a key-value pair from the JMAP if the value does not match.
      * @param self Pointer to the JMAP structure.
@@ -174,7 +189,7 @@ typedef struct JMAP_INTERFACE {
      * @param value The value to not match for removal.
      * @return JMAP_RETURN structure indicating success or error. The value is NULL if the key was removed successfully.
      */
-    JMAP_RETURN (*remove_if_value_not_match)(JMAP *self, const char *key, const void *value);
+    void (*remove_if_value_not_match)(JMAP *self, const char *key, const void *value);
     /**
      * @brief Removes all key-value pairs that match a predicate function.
      * @param self Pointer to the JMAP structure.
@@ -182,7 +197,7 @@ typedef struct JMAP_INTERFACE {
      * @param ctx Context pointer passed to the predicate function.
      * @return JMAP_RETURN structure indicating success or error.
      */
-    JMAP_RETURN (*remove_if)(JMAP *self, bool (*predicate)(const char *key, const void *value, const void *ctx), const void *ctx);
+    void (*remove_if)(JMAP *self, bool (*predicate)(const char *key, const void *value, const void *ctx), const void *ctx);
     /**
      * @brief Frees the JMAP structure and its resources.
      * @param self Pointer to the JMAP structure to free.
@@ -191,48 +206,10 @@ typedef struct JMAP_INTERFACE {
 } JMAP_INTERFACE;
 
 extern JMAP_INTERFACE jmap;
+extern JMAP_RETURN last_error_trace;
 
 
 /* ----- MACROS ----- */
-
-/**
- * @brief Frees only the .value in a JMAP_RETURN if it exists.
- *
- * @param ret JMAP_RETURN to free value from.
- */
-#define JMAP_FREE_RET_VALUE(ret) \
-    do { \
-        if ((ret).has_value && (ret).value != NULL) { \
-            free((ret).value); \
-            (ret).value = NULL; \
-        } \
-    } while(0)
-
-/**
- * @brief Frees only the error message in a JMAP_RETURN if it exists.
- *
- * @param ret JMAP_RETURN to free error from.
- */
-#define JMAP_FREE_RET_ERROR(ret) \
-    do { \
-        if ((ret).has_error && (ret).error.error_msg != NULL) { \
-            free((ret).error.error_msg); \
-            (ret).error.error_msg = NULL; \
-        } \
-    } while(0)
-
-
-/**
- * @brief Frees both the .value and the error in a JMAP_RETURN.
- *
- * @param ret JMAP_RETURN to fully free.
- */
-#define JMAP_FREE_RET(ret) \
-    do { \
-        JMAP_FREE_RET_VALUE(ret); \
-        JMAP_FREE_RET_ERROR(ret); \
-    } while(0)
-
 
 /**
  * @brief Extracts the value from a pointer returned by JMAP.
@@ -244,6 +221,8 @@ extern JMAP_INTERFACE jmap;
  * @note Does NOT free the pointer.
  */
 #define JMAP_GET_VALUE(type, val) (*(type*)val)
+
+#define JMAP_GET_POINTER(type, val) ((type*)val)
 
 /**
  * @brief Allocates memory and copies a value into it.
@@ -274,105 +253,24 @@ static inline void* jmap_direct_input_impl(size_t size, void *value) {
 
 
 /**
- * @brief Extracts the value from a JMAP_RETURN and frees its internal pointer.
+ * @brief Checks if global error trace contains error.
  *
- * @param type Type of the value to extract.
- * @param ret The JMAP_RETURN structure to extract the value from.
- * @return The extracted value of type `type`.
- *
- * @note Frees the internal .value pointer automatically.
+ * @return true if error, false otherwise.
  */
-#define JMAP_RET_GET_VALUE_FREE(type, ret) \
-    ({ type _tmp = *(type*)(ret).value; JMAP_FREE_RET(ret); _tmp; })
-
-/**
- * @brief Extracts the value from a JMAP_RETURN without freeing it.
- *
- * @param type Type of the value to extract.
- * @param JMAP_RETURN The JMAP_RETURN structure to extract the value from.
- * @return The extracted value of type `type`.
- *
- * @note Caller must free .value manually if needed.
- */
-#define JMAP_RET_GET_VALUE(type, JMAP_RETURN) (*(type*)(JMAP_RETURN).value)
-
-/**
- * @brief Helper to extract the internal pointer from a JMAP_RETURN.
- *
- * @param ret JMAP_RETURN to extract from.
- * @return Pointer stored in ret.value, or NULL if ret.value is NULL.
- *
- * @note Sets ret.value to NULL to prevent double-free.
- */
-static inline void* jmap_ret_get_pointer_impl(JMAP_RETURN ret) {
-    if (ret.value == NULL) return NULL;
-    void *p = ret.value;
-    ret.value = NULL; // Clear the value to avoid double free
-    return p;
-}
-
-/**
- * @brief Extracts the pointer from a JMAP_RETURN without freeing.
- *
- * @param type Type of the pointer.
- * @param JMAP_RETURN JMAP_RETURN to extract from.
- * @return Pointer of type `type*`.
- *
- * @note Caller is responsible for freeing the returned pointer.
- */
-#define JMAP_RET_GET_POINTER(type, JMAP_RETURN) ((type*)jmap_ret_get_pointer_impl(JMAP_RETURN))
-
-/**
- * @brief Extracts value from a JMAP_RETURN or returns a default if empty.
- *
- * @param type Type of the value.
- * @param JMAP_RETURN JMAP_RETURN to extract from.
- * @param default_value Value to return if JMAP_RETURN has no value.
- * @return Value from JMAP_RETURN or default_value.
- */
-#define JMAP_RET_GET_VALUE_SAFE(type, JMAP_RETURN, default_value) \
-    ((JMAP_RETURN).has_value ? *(type*)((JMAP_RETURN).value) : (default_value))
-
-/**
- * @brief Checks if a JMAP_RETURN has an error, prints it, and returns EXIT_FAILURE.
- *
- * @param ret JMAP_RETURN to check.
- */
-#define JMAP_CHECK_RET(ret) \
+#define JMAP_CHECK_RET \
     ({ \
         bool ret_val = false; \
-        if ((ret).has_error) { \
-            jmap.print_array_err((ret), __FILE__, __LINE__); \
+        if (last_error_trace.has_error) { \
+            jmap.print_array_err(__FILE__, __LINE__); \
             ret_val = true; \
         } \
-        JMAP_FREE_RET_ERROR(ret); \
         ret_val; \
     })
 
-/**
- * @brief Checks if a JMAP_RETURN has an error, prints it, frees its value if present, and returns EXIT_FAILURE.
- *
- * @param ret JMAP_RETURN to check.
- */
-#define JMAP_CHECK_RET_FREE(ret) \
-    ({ \
-        bool ret_val = false; \
-        if ((ret).has_error) { \
-            jmap.print_array_err((ret), __FILE__, __LINE__); \
-            ret_val = true; \
-        } \
-        JMAP_FREE_RET(ret); \
-        ret_val; \
-    })
-
-
-#define JMAP_CKECK_RET_FREE_RET(ret) \
-    do { \
-        if (jmap_check_ret_free(ret, __FILE__, __LINE__)) { \
-            return EXIT_FAILURE; \
-        } \
-    } while(0)
-
-#define MAX(a, b) a > b ? a : b
+#define JMAP_CKECK_RET_RETURN \
+    if (last_error_trace.has_error) { \
+        jmap.print_array_err(__FILE__, __LINE__); \
+        return EXIT_FAILURE; \
+    }
 
 #endif
