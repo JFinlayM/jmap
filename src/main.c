@@ -1,4 +1,4 @@
-#include "jmap.h"
+#include "../inc/jmap.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -28,18 +28,7 @@ bool is_between(const char *key, const void *value, const void *ctx) {
     return val >= 20 && val <= 40;
 }
 
-int compare_keys(const void *key_a, const void *value_a, const void *key_b, const void *value_b, const void *ctx) {
-    (void)ctx;      // unused
-    (void)value_a;  // unused
-    (void)value_b;  // unused
 
-    int int_a = atoi((const char*)key_a);
-    int int_b = atoi((const char*)key_b);
-
-    if (int_a < int_b) return -1;
-    if (int_a > int_b) return 1;
-    return 0;
-}
 
 
 
@@ -47,10 +36,11 @@ int main(void) {
     JMAP map;
 
     // Initialize the map with int values
-    jmap.init(&map, sizeof(int));
+    JMAP_USER_CALLBACK_IMPLEMENTATION imp;
+    imp.print_element_callback = print_element_callback;
+    imp.is_equal = is_equal_callback;
+    jmap.init(&map, sizeof(int), imp);
     JMAP_CKECK_RET_RETURN;
-    map.user_callbacks.print_element_callback = print_element_callback;
-    map.user_callbacks.is_equal = is_equal_callback;
 
     printf("Initial capacity: %zu\n", map._length);
 
@@ -195,10 +185,8 @@ int main(void) {
     JMAP_CKECK_RET_RETURN;
 
     JMAP jmap_data;
-    jmap.init(&jmap_data, sizeof(int));
+    jmap.init(&jmap_data, sizeof(int), imp);
     JMAP_CKECK_RET_RETURN;
-    jmap_data.user_callbacks.print_element_callback = print_element_callback;
-    jmap_data.user_callbacks.is_equal = is_equal_callback;
 
     jmap.clear(&jmap_data);
     JMAP_CKECK_RET_RETURN;
@@ -219,10 +207,10 @@ int main(void) {
         char key[10];
         snprintf(key, sizeof(key), "%d", random_data[(int)i]);
         void * pvalue = jmap.get(&jmap_data, key);
-        if (last_error_trace.error_code == JMAP_ELEMENT_NOT_FOUND) {
+        if (jmap_last_error_trace.error_code == JMAP_ELEMENT_NOT_FOUND) {
             jmap.put(&jmap_data, key, JMAP_DIRECT_INPUT(int, 1));
             JMAP_CKECK_RET_RETURN;
-        } else if (last_error_trace.has_error) {
+        } else if (jmap_last_error_trace.has_error) {
             JMAP_CKECK_RET_RETURN;
         }
         else {

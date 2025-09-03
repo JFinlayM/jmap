@@ -9,8 +9,10 @@ include(GNUInstallDirs)
 
 # ----- Sources de la bibliothèque -----
 set(LIB_SOURCES
-    jmap.c
     third_party/murmur3-master/murmur3.c
+    src/jmap.c
+    src/jmap_presets/jmap_int.c
+    src/jmap_presets/jmap_string.c
 )
 
 # Bibliothèque statique
@@ -40,7 +42,7 @@ install(TARGETS jmap jmap_shared
 )
 
 # Installe jmap.h dans /usr/local/include
-install(FILES jmap.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES inc/jmap.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # ----- Cibles personnalisées -----
 # "make lib" -> construit et installe la lib
@@ -50,7 +52,7 @@ add_custom_target(lib
 )
 
 # Exécutable de test
-add_executable(jmap_test main.c)
+add_executable(jmap_test src/main.c)
 target_link_libraries(jmap_test jmap)
 target_include_directories(jmap_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
