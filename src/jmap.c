@@ -22,13 +22,13 @@ static inline size_t max_size_t(size_t a, size_t b) {return (a > b ? a : b);}
 static inline void* memcpy_elem(JMAP *self, void *__restrict__ __dest, const void *__restrict__ __elem, size_t __count){
     void *ret = __dest;
 
-    if (!self->user_overrides.copy_elem_override) {
+    if (self->_data_type == JMAP_TYPE_VALUE) {
         ret = memcpy(__dest, __elem, self->_elem_size * __count);
-    } else {
+    } else if (self->_data_type == JMAP_TYPE_POINTER){
         for (size_t i = 0; i < __count; i++) {
             const void *src_elem = (const char*)__elem + i * self->_elem_size;
             if (!src_elem || !(*(void**)src_elem)) continue;
-            const void *src_elem_copy = self->user_overrides.copy_elem_override(src_elem);
+            const void *src_elem_copy = self->user_callbacks.copy_elem_override(src_elem);
             memcpy((char*)__dest + i * self->_elem_size, src_elem_copy, self->_elem_size);
         }
     }
@@ -69,6 +69,12 @@ static void reset_error_trace(){
 
 
 static void jmap_free(JMAP *self) {
+    if (self->_data_type == JMAP_TYPE_POINTER) {
+        for (size_t i = 0; i < self->_capacity; i++){
+            void **ptr = self->data + i*self->_elem_size;
+            if (*ptr) free(*ptr);
+        }
+    }
     if (self->data != NULL) {
         free(self->data);
         self->data = NULL;
@@ -108,12 +114,13 @@ static void jmap_print(const JMAP *self) {
     reset_error_trace();
 }
 
-static void jmap_init(JMAP *map, size_t _elem_size, JMAP_USER_CALLBACK_IMPLEMENTATION imp) {
+static void jmap_init(JMAP *map, size_t _elem_size, JMAP_DATA_TYPE data_type, JMAP_USER_CALLBACK_IMPLEMENTATION imp) {
     map->_capacity = 16;
     map->_load_factor = 0.75f;
     map->_elem_size = _elem_size;
     map->_length = 0;
     map->_key_max_length = 50;
+    map->_data_type = data_type;
     map->data = malloc(map->_capacity * map->_elem_size);
     if (map->data == NULL) {
         return create_return_error(map, JMAP_UNINITIALIZED, "Memory allocation for data failed");
@@ -132,8 +139,8 @@ static void jmap_init(JMAP *map, size_t _elem_size, JMAP_USER_CALLBACK_IMPLEMENT
     map->user_callbacks.print_element_callback = NULL;
     map->user_callbacks.is_equal = NULL;
     map->user_callbacks.element_to_string = NULL;
+    map->user_callbacks.copy_elem_override = NULL;
     map->user_overrides.print_error_override = NULL;
-    map->user_overrides.copy_elem_override = NULL;
     map->user_overrides.print_array_override = NULL;
     map->user_overrides.compare_pairs_override = NULL;
     map->user_callbacks = imp;
@@ -286,6 +293,7 @@ static JMAP jmap_clone(const JMAP *self) {
     clone._length = self->_length;
     clone._key_max_length = self->_key_max_length;
     clone._load_factor = self->_load_factor;
+    clone._data_type = self->_data_type;
     clone.user_callbacks = self->user_callbacks;
     clone.user_overrides = self->user_overrides;
 

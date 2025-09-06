@@ -42,7 +42,7 @@ JMAP create_jmap_string(void){
     imp.print_element_callback = print_element_array_callback;
     imp.element_to_string = element_to_string_array_callback;
     imp.is_equal = is_equal_array_callback;
-    jmap.init(&map, sizeof(char*), imp);
-    map.user_overrides.copy_elem_override = copy_elem_override;
+    imp.copy_elem_override = copy_elem_override;
+    jmap.init(&map, sizeof(char*), JMAP_TYPE_POINTER, imp);
     return map;
 }

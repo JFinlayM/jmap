@@ -12,6 +12,14 @@ set(LIB_SOURCES
     src/jmap.c
     src/jmap_presets/jmap_int.c
     src/jmap_presets/jmap_string.c
+    src/jmap_presets/jmap_float.c
+    src/jmap_presets/jmap_char.c
+    src/jmap_presets/jmap_short.c
+    src/jmap_presets/jmap_long.c
+    src/jmap_presets/jmap_double.c
+    src/jmap_presets/jmap_uint.c
+    src/jmap_presets/jmap_ulong.c
+    src/jmap_presets/jmap_ushort.c
 )
 
 add_library(jmap STATIC ${LIB_SOURCES})

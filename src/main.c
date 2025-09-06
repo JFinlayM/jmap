@@ -39,7 +39,7 @@ int main(void) {
     JMAP_USER_CALLBACK_IMPLEMENTATION imp;
     imp.print_element_callback = print_element_callback;
     imp.is_equal = is_equal_callback;
-    jmap.init(&map, sizeof(int), imp);
+    jmap.init(&map, sizeof(int), JMAP_TYPE_VALUE, imp);
     JMAP_CHECK_RET_RETURN;
 
     printf("Initial capacity: %zu\n", map._length);
@@ -185,7 +185,7 @@ int main(void) {
     JMAP_CHECK_RET_RETURN;
 
     JMAP jmap_data;
-    jmap.init(&jmap_data, sizeof(int), imp);
+    jmap.init(&jmap_data, sizeof(int), JMAP_TYPE_VALUE, imp);
     JMAP_CHECK_RET_RETURN;
 
     jmap.clear(&jmap_data);

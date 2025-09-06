@@ -2,8 +2,8 @@
 
 **Note**: I'm a beginner programmer, so don't take this code too seriously. This is a learning project!
 
-A hash map library for C with key-value storage, iteration, and various utility functions. The library is designed to be generic, allowing storage of any data type by specifying the element size during initialization. 
-It provides a variety of utility functions and supports user-defined callbacks for custom behavior. The functions return a struct containing either the result or an error code/message, which can be checked using provided macros. 
+A hash map library for C with key-value storage, iteration, and various utility functions. The library is designed to be generic, allowing storage of any data type by specifying the element size during initialization, or by using preset.
+It provides a variety of utility functions and supports user-defined callbacks for custom behavior. 
 The functions are inspired by higher-level languages like JavaScript or Java.
 
 ## Install

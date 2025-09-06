@@ -45,6 +45,8 @@ typedef struct JMAP_USER_CALLBACK_IMPLEMENTATION {
     char *(*element_to_string)(const void* value);
     // Function to check if two elements are equal. This function is mandatory if you want to use the jmap.contains, jmap.find_first, jmap.indexes_of functions.
     bool (*is_equal)(const void* value_a, const void* value_b);
+    // This function is MANDATORY if storing pointers (Example : strdup for char*).
+    void *(*copy_elem_override)(const void* value);    
 } JMAP_USER_CALLBACK_IMPLEMENTATION;
 
 typedef struct JMAP_USER_OVERRIDE_IMPLEMENTATION {
@@ -52,12 +54,14 @@ typedef struct JMAP_USER_OVERRIDE_IMPLEMENTATION {
     void (*print_error_override)(const JMAP_RETURN ret);
     // Override function to print the whole array. This function is NOT mandatory.
     void (*print_array_override)(const JMAP* array);
-    // This function is MANDATORY if storing pointers (Example : strdup for char*).
-    void *(*copy_elem_override)(const void* value);    
     // Function to compare two elements. This function is mandatory if you want to use the jmap.sort function.
     int (*compare_pairs_override)(const char *key_a, const void *value_a, const char *key_b, const void *value_b);
 }JMAP_USER_OVERRIDE_IMPLEMENTATION;
 
+typedef enum JMAP_DATA_TYPE {
+    JMAP_TYPE_VALUE = 0,
+    JMAP_TYPE_POINTER
+}JMAP_DATA_TYPE;
 
 typedef struct JMAP {
     char ** keys;
@@ -67,6 +71,7 @@ typedef struct JMAP {
     size_t _capacity;
     float _load_factor; // Load factor for resizing
     size_t _key_max_length; // Maximum length of keys, used for memory allocation
+    JMAP_DATA_TYPE _data_type;
     JMAP_USER_CALLBACK_IMPLEMENTATION user_callbacks;
     JMAP_USER_OVERRIDE_IMPLEMENTATION user_overrides;
 } JMAP;
@@ -82,7 +87,7 @@ typedef struct JMAP_INTERFACE {
      * @param elem_size Size of the elements to be stored in the JMAP.
      * @param imp structure that contains the pointer to the user function implementations.
      */
-    void (*init)(JMAP *self, size_t elem_size, JMAP_USER_CALLBACK_IMPLEMENTATION imp);
+    void (*init)(JMAP *self, size_t elem_size, JMAP_DATA_TYPE data_type, JMAP_USER_CALLBACK_IMPLEMENTATION imp);
     JMAP (*init_preset)(JMAP_TYPE_PRESET preset);
     /**
      * @brief Inserts a key-value pair into the JMAP.
