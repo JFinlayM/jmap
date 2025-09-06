@@ -8,15 +8,15 @@ int main(void){
 
     // Insert 10 values
     for (int i = 1; i <= 10; i++) {
-        char key[16];
-        char value[16];
-        snprintf(key, sizeof(key), "key%d", i);
-        snprintf(value, sizeof(value), "value%d", i);
-        jmap.put(&map, key, value);
+        char *key = (char*)malloc(6*sizeof(char));
+        char *value = (char*)malloc(8*sizeof(char));
+        snprintf(key, 6, "key%d", i);
+        snprintf(value, 8, "value%d", i);
+        jmap.put(&map, key, &value);
         JMAP_CHECK_RET;
 
-        printf("Inserted %s -> %d | size=%zu capacity=%zu\n", 
-               key, i * 10, map._length, map._capacity);
+        printf("Inserted %s -> %s | size=%zu capacity=%zu\n", 
+               key, value, map._length, map._capacity);
     }
 
     // Retrieve and print them
@@ -25,18 +25,18 @@ int main(void){
         char key[16];
         snprintf(key, sizeof(key), "key%d", i);
 
-        char *value = (char*)jmap.get(&map, key);
+        char **value = (char**)jmap.get(&map, key);
         JMAP_CKECK_RET_RETURN;
-        printf("%s -> %s\n", key, value);
+        printf("%s -> %s\n", key, *value);
     }
 
     // Test updating one key
-    jmap.put(&map, "key5", "hello keys5 !");
+    jmap.put(&map, "key5", JMAP_DIRECT_INPUT(char*,"hello keys5 !"));
     JMAP_CKECK_RET_RETURN;
 
-    char * updated = (char*)jmap.get(&map, "key5");
+    char ** updated = (char**)jmap.get(&map, "key5");
     JMAP_CKECK_RET_RETURN;
-    printf("\nUpdated key5 -> %s\n", updated);
+    printf("\nUpdated key5 -> %s\n", *updated);
 
     printf("\nFinal size: %zu, capacity: %zu\n", map._length, map._capacity);
     // Print the entire map
@@ -66,11 +66,11 @@ int main(void){
     JMAP_CKECK_RET_RETURN;
     printf("\nKey 'key0' exists: %s\n", exists ? "true" : "false");
 
-    bool value_exists = jmap.contains_value(&map, "value5");
+    bool value_exists = jmap.contains_value(&map, JMAP_DIRECT_INPUT(char*,"value5"));
     JMAP_CKECK_RET_RETURN;
     printf("\nvalue5 exists: %s\n", value_exists ? "true" : "false");
 
-    value_exists = jmap.contains_value(&map, "value6");
+    value_exists = jmap.contains_value(&map, JMAP_DIRECT_INPUT(char*,"value6"));
     JMAP_CKECK_RET_RETURN;
     printf("\nvalue6 exists: %s\n", value_exists ? "true" : "false");
 

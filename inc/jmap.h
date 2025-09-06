@@ -142,7 +142,7 @@ typedef struct JMAP_INTERFACE {
      * @param self Pointer to the JMAP structure.
      * @return Pointer to the first value of a heap allocated array, containing all values.
      */
-    void* (*get_values)(const JMAP *self);
+    void* (*get_values)(JMAP *self);
     /**
      * @brief Iterates over each key-value pair in the JMAP and applies a callback function.
      * @param self Pointer to the JMAP structure.
