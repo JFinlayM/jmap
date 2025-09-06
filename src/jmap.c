@@ -714,6 +714,14 @@ static void jmap_to_sort(JMAP *self, char ***keys, void **values) {
 
 extern JMAP create_jmap_int(void);
 extern JMAP create_jmap_string(void);
+extern JMAP create_jmap_float(void);
+extern JMAP create_jmap_char(void);
+extern JMAP create_jmap_double(void);
+extern JMAP create_jmap_long(void);
+extern JMAP create_jmap_short(void);
+extern JMAP create_jmap_ulong(void);
+extern JMAP create_jmap_ushort(void);
+extern JMAP create_jmap_uint(void);
 
 static JMAP jmap_init_preset(JMAP_TYPE_PRESET preset){
     JMAP (*ret_func)(void) = NULL;
@@ -723,6 +731,30 @@ static JMAP jmap_init_preset(JMAP_TYPE_PRESET preset){
             break;
         case JMAP_STRING_PRESET:
             ret_func = create_jmap_string;
+            break;
+        case JMAP_FLOAT_PRESET:
+            ret_func = create_jmap_float;
+            break;
+        case JMAP_CHAR_PRESET:
+            ret_func = create_jmap_char;
+            break;
+        case JMAP_DOUBLE_PRESET:
+            ret_func = create_jmap_double;
+            break;
+        case JMAP_LONG_PRESET:
+            ret_func = create_jmap_long;
+            break;
+        case JMAP_SHORT_PRESET:
+            ret_func = create_jmap_short;
+            break;
+        case JMAP_UINT_PRESET:
+            ret_func = create_jmap_uint;
+            break;
+        case JMAP_USHORT_PRESET:
+            ret_func = create_jmap_ushort;
+            break;
+        case JMAP_ULONG_PRESET:
+            ret_func = create_jmap_ulong;
             break;
     }
     JMAP map = ret_func();
