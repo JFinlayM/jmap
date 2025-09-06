@@ -268,7 +268,7 @@ static inline void* jmap_direct_input_impl(size_t size, void *value) {
         ret_val; \
     })
 
-#define JMAP_CKECK_RET_RETURN \
+#define JMAP_CHECK_RET_RETURN \
     if (jmap_last_error_trace.has_error) { \
         jmap.print_array_err(__FILE__, __LINE__); \
         return EXIT_FAILURE; \

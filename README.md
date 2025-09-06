@@ -20,42 +20,23 @@ gcc main.c -o main -ljmap
 #include <jmap.h>
 #include <stdio.h>
 
-void print_int(const void *x) {
-    printf("%d ", JMAP_GET_VALUE(const int, x));
-}
-
-bool is_equal_int(const void *a, const void *b) {
-    return JMAP_GET_VALUE(const int, a) == JMAP_GET_VALUE(const int, b);
-}
-
 int main() {
-    JMAP map;
-    JMAP_RETURN ret;
     
     // Initialize
-    ret = jmap.init(&map, sizeof(int));
-    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE; // Check for errors and return
-    // Or just JMAP_CHECK_RET_FREE(ret) after function calls if you don't need to return
-    // Or JMAP_CHECK_RET(ret) if you need the return value later
-    // Or nothing but that creates memory leaks
-    
-    // Set callbacks
-    map.user_implementation.print_element_callback = print_int;
-    map.user_implementation.is_equal_callback = is_equal_int;
+    JMAP map = jmap.init_preset(JMAP_INT_PRESET);
+    JMAP_CHECK_RET_RETURN;
     
     // Add elements
-    ret = jmap.put(&map, "age", JMAP_DIRECT_INPUT(int, 25));
-    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
+    jmap.put(&map, "age", JMAP_DIRECT_INPUT(int, 25));
+    JMAP_CHECK_RET_RETURN;
     
-    ret = jmap.put(&map, "score", JMAP_DIRECT_INPUT(int, 100));
-    if (JMAP_CHECK_RET_FREE(ret)) return EXIT_FAILURE;
+    jmap.put(&map, "score", JMAP_DIRECT_INPUT(int, 100));
+    JMAP_CHECK_RET_RETURN;
     
     // Get value
-    ret = jmap.get(&map, "age");
-    if (!ret.has_error) {
-        printf("Age: %d\n", JMAP_RET_GET_VALUE(int, ret));
-        JMAP_FREE_RET_VALUE(ret);
-    }
+    int ret = *(int*)jmap.get(&map, "age");
+    JMAP_CHECK_RET_RETURN;
+    printf("Age: %d\n", ret);
     
     jmap.print(&map);
     jmap.free(&map);
@@ -65,10 +46,10 @@ int main() {
 ### Output
 
 ```bash
-JMAP [size: 2] =>
-age: 25 
-score: 100 
 Age: 25
+JMAP [size: 2, capacity: 16, load factor:0.75] =>
+{7, age -> 25 }
+{8, score -> 100 }
 ```
 
 ## Core Functions
@@ -98,123 +79,28 @@ jmap.remove_if_value_match(&map, "key", &value);     // Remove if value matches
 jmap.remove_if_value_not_match(&map, "key", &value); // Remove if value doesn't match
 jmap.remove_if(&map, predicate, ctx);                // Remove pairs matching predicate
 jmap.for_each(&map, callback, ctx);                  // Apply function to each pair
-```
-
-## Examples
-
-### Basic Usage
-```c
-JMAP map;
-jmap.init(&map, sizeof(int));
-
-// Insert values
-jmap.put(&map, "apple", JMAP_DIRECT_INPUT(int, 5));
-jmap.put(&map, "banana", JMAP_DIRECT_INPUT(int, 3));
-jmap.put(&map, "orange", JMAP_DIRECT_INPUT(int, 8));
-
-// Check if key exists
-JMAP_RETURN ret = jmap.contains_key(&map, "apple");
-if (!ret.has_error && JMAP_RET_GET_VALUE(bool, ret)) {
-    printf("Apple found!\n");
-}
-JMAP_FREE_RET(ret);
-```
-
-### Iterating Over Pairs
-```c
-void print_pair(const char *key, void *value, const void *ctx) {
-    (void)ctx; // Unused
-    printf("%s: %d\n", key, JMAP_GET_VALUE(int, value));
-}
-
-jmap.for_each(&map, print_pair, NULL);
-```
-
-### Conditional Removal
-```c
-bool remove_low_values(const char *key, const void *value, const void *ctx) {
-    (void)key; // Unused
-    int threshold = *(int*)ctx;
-    return JMAP_GET_VALUE(const int, value) < threshold;
-}
-
-int threshold = 5;
-jmap.remove_if(&map, remove_low_values, &threshold);
-```
-
-### Working with Keys and Values
-```c
-// Get all keys
-JMAP_RETURN ret = jmap.get_keys(&map);
-if (!ret.has_error) {
-    char **keys = JMAP_RET_GET_POINTER(char*, ret);
-    // Use keys array...
-    // Free each key and the array when done
-    for (size_t i = 0; i < map._length; i++) {
-        free(keys[i]);
-    }
-    free(keys);
-}
-
-// Get all values
-ret = jmap.get_values(&map);
-if (!ret.has_error) {
-    void *values = JMAP_RET_GET_POINTER(void, ret);
-    // Use values array (size is map._length * map._elem_size)
-    free(values);
-}
-```
-
-### Custom Types
-```c
-typedef struct { int x, y; } Point;
-
-void print_point(const void *p) {
-    Point pt = JMAP_GET_VALUE(const Point, p);
-    printf("(%d,%d) ", pt.x, pt.y);
-}
-
-bool points_equal(const void *a, const void *b) {
-    Point pa = JMAP_GET_VALUE(const Point, a);
-    Point pb = JMAP_GET_VALUE(const Point, b);
-    return pa.x == pb.x && pa.y == pb.y;
-}
-
-JMAP points_map;
-jmap.init(&points_map, sizeof(Point));
-points_map.user_implementation.print_element_callback = print_point;
-points_map.user_implementation.is_equal_callback = points_equal;
-
-Point p = {3, 4};
-jmap.put(&points_map, "origin", &p);
-```
-
-### Safe Operations
-```c
-// Put only if key doesn't exist
-ret = jmap.put_if_absent(&map, "new_key", JMAP_DIRECT_INPUT(int, 42));
-if (!ret.has_error) {
-    printf("Key was added\n");
-} else {
-    printf("Key already exists\n");
-}
-
-// Remove only if value matches
-int expected_value = 10;
-ret = jmap.remove_if_value_match(&map, "key", &expected_value);
-if (!ret.has_error) {
-    printf("Key removed because value matched\n");
-}
+jmap.to_sort(&map, res_keys, res_values);            // Returns via `res_keys` and `res_values` the keys and values sorted using the compare_pairs function
 ```
 
 ## Required Callbacks
 
 Set these before using related functions:
 ```c
-map.user_implementation.print_element_callback = print_func;     // For print()
-map.user_implementation.print_error_callback = error_func;      // For custom error printing
-map.user_implementation.is_equal_callback = equal_func;         // For contains_value(), remove_if_value_*()
-map.user_implementation.compare_pairs_callback = compare_func;  // For sorting operations (future use)
+JMAP_USER_CALLBACK_IMPLEMENTATION imp;
+imp.print_element_callback = print_element_array_callback;
+imp.element_to_string = element_to_string_array_callback;
+imp.is_equal = is_equal_array_callback;
+```
+
+## Override callbacks
+
+There is some functions that can be overriden. Maybe more will be added later:
+```c
+JMAP_USER_OVERRIDE_IMPLEMENTATION imp;
+imp.print_error_override = error_func;        // For error printing
+imp.print_array_override = print_array_func;  // For print() override
+imp.copy_elem_override = copy_elem_func;      // For copy override. MANDATORY when storing pointers (Example : strdup for char*)
+imp.compare_pairs_override = compare_pairs_func; // By default, the keys of pairs are compared
 ```
 
 ## Configuration
@@ -222,36 +108,22 @@ map.user_implementation.compare_pairs_callback = compare_func;  // For sorting o
 The JMAP structure includes several configuration options:
 ```c
 map._load_factor = 0.75f;        // Resize when 75% full (default)
-map._key_max_length = 256;       // Maximum key length (default)
+map._key_max_length = 50;       // Maximum key length (default)
 ```
 
-## Error Handling
+## Good practices
+- you **should** implement every function of `JARRAY_USER_CALLBACKS_IMPLEMENTATION`.
+- always check return value with macros below to be noticed if the last jarray function call produced an error.
+- if you know rougly how many element there should be in your jarray, you should use `reserve` function to allocate memory beforehand (to reduce realloc calls).
+- if you need to store pointers, you **must** implement the `copy_elem_override` function and set it in the user implementation structure of your array. Please look at file `jarray_string.c` in folder `Examples` where I implemented an array of string (char*) as an example. 
 
-All functions return a `JMAP_RETURN` structure that contains either a value or an error:
-```c
-typedef struct JMAP_RETURN {
-    union {
-        void* value;
-        JMAP_RETURN_ERROR error;
-    };
-    bool has_value;
-    bool has_error;
-    const JMAP* ret_source;
-} JMAP_RETURN;
-```
-
-## MACROS
+## Macros
 
 Use these macros for automatic error checking and value extraction:
 ```c
-JMAP_CHECK_RET(ret);             // Print error, free error, return true if error -> if you need ret value later
-JMAP_CHECK_RET_FREE(ret);        // Print error, free return value and error, return true if error -> if you don't need ret value later
-JMAP_GET_VALUE(type, val);       // Extract value from pointer (doesn't free)
-JMAP_DIRECT_INPUT(type, val);    // Create pointer for input value
-JMAP_RET_GET_VALUE(type, ret);   // Get value from return (doesn't free)
-JMAP_RET_GET_VALUE_FREE(type, ret); // Get value and free return
-JMAP_RET_GET_POINTER(type, ret); // Get pointer from return
-JMAP_FREE_RET(ret);              // Free both value and error
-JMAP_FREE_RET_VALUE(ret);        // Free only value
-JMAP_FREE_RET_ERROR(ret);        // Free only error
+JARRAY_CHECK_RET;                   // Print error, free error, return true if error
+JARRAY_CHECK_RET_RETURN;            // Print error, free error, return EXIT_FAILURE if error
+JARRAY_GET_VALUE(type, val);        // Extract value from pointer (doesn't free)
+JARRAY_DIRECT_INPUT(type, val);     // Create pointer for input value
+JARRAY_FREE_RET;                    // Free error
 ```
