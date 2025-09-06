@@ -6,12 +6,31 @@ A hash map library for C with key-value storage, iteration, and various utility 
 It provides a variety of utility functions and supports user-defined callbacks for custom behavior. The functions return a struct containing either the result or an error code/message, which can be checked using provided macros. 
 The functions are inspired by higher-level languages like JavaScript or Java.
 
-## Building
+## Install
+
+Via Git download:
+```bash
+mkdir build && cd build
+cmake ..
+sudo make lib
+sudo ldconfig
+```
+
+Via dpkg:
 
 ```bash
 sudo dpkg -i libjmap-dev_1.0.0-beta-1_amd64.deb
 sudo apt-get install -f
-gcc main.c -o main -ljmap
+sudo ldconfig
+```
+This should install libjmap.so and libjmap.a in /urs/local/lib/ and jmap.h in usr/local/include/
+
+To use in your projet just include with *#include <jmap.h>* and link with *-ljmap* when compiling.
+You can find in folder `Examples` some simple c files using jmap. To see result (for jmap_string.c for example): 
+```bash
+cd Examples
+make
+./jmap_string
 ```
 
 ## Quick Start
@@ -113,9 +132,9 @@ map._key_max_length = 50;       // Maximum key length (default)
 
 ## Good practices
 - you **should** implement every function of `JARRAY_USER_CALLBACKS_IMPLEMENTATION`.
-- always check return value with macros below to be noticed if the last jarray function call produced an error.
-- if you know rougly how many element there should be in your jarray, you should use `reserve` function to allocate memory beforehand (to reduce realloc calls).
-- if you need to store pointers, you **must** implement the `copy_elem_override` function and set it in the user implementation structure of your array. Please look at file `jarray_string.c` in folder `Examples` where I implemented an array of string (char*) as an example. 
+- always check return value with macros below to be noticed if the last jmap function call produced an error.
+- if you know rougly how many element there should be in your jmap, you should use `reserve` function to allocate memory beforehand (to reduce realloc calls).
+- if you need to store pointers, you **must** implement the `copy_elem_override` function and set it in the user implementation structure of your array. Please look at file `jmap_string.c` in folder `Examples` where I implemented an array of string (char*) as an example. 
 
 ## Macros
 
