@@ -4,12 +4,12 @@
 
 A hash map library for C with key-value storage, iteration, and various utility functions. The library is designed to be generic, allowing storage of any data type by specifying the element size during initialization. 
 It provides a variety of utility functions and supports user-defined callbacks for custom behavior. The functions return a struct containing either the result or an error code/message, which can be checked using provided macros. 
-The functions are inspired by higher-level languages like JavaScript or Java but hopefully quicker...
+The functions are inspired by higher-level languages like JavaScript or Java.
 
 ## Building
 
 ```bash
-sudo dpkg -i libjmap-dev_1.0.0-1_amd64.deb
+sudo dpkg -i libjmap-dev_1.0.0-beta-1_amd64.deb
 sudo apt-get install -f
 gcc main.c -o main -ljmap
 ```
