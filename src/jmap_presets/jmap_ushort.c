@@ -21,7 +21,7 @@ static bool is_equal_array_callback(const void *x, const void *y){
 }
 
 
-JMAP create_jmap_ushort(void){
+JMAP create_map_ushort(void){
     JMAP array;
     JMAP_USER_CALLBACK_IMPLEMENTATION imp;
     imp.print_element_callback = print_element_array_callback;

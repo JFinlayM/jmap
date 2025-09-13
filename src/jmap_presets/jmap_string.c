@@ -36,7 +36,7 @@ static void *copy_elem_override(const void *x){
 }
 
 
-JMAP create_jmap_string(void){
+JMAP create_map_string(void){
     JMAP map;
     JMAP_USER_CALLBACK_IMPLEMENTATION imp;
     imp.print_element_callback = print_element_array_callback;

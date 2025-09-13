@@ -238,20 +238,6 @@ extern JMAP_RETURN jmap_last_error_trace;
 
 #define JMAP_GET_POINTER(type, val) ((type*)val)
 
-/**
- * @brief Allocates memory and copies a value into it.
- *
- * @param size Size of the value in bytes.
- * @param value Pointer to the value to copy.
- * @return Pointer to the newly allocated copy, or NULL if allocation fails.
- *
- * @note Caller is responsible for freeing the returned pointer.
- */
-static inline void* jmap_direct_input_impl(size_t size, void *value) {
-    void *p = malloc(size);
-    if (p) memcpy(p, value, size);
-    return p;
-}
 
 
 /**
@@ -263,7 +249,7 @@ static inline void* jmap_direct_input_impl(size_t size, void *value) {
  *
  * @note Caller must free the returned pointer if needed.
  */
-#define JMAP_DIRECT_INPUT(type, val) ((type*) jmap_direct_input_impl(sizeof(type), &(type){val}))
+#define JMAP_DIRECT_INPUT(type, val) ((type*)&(type){val})
 
 
 /**
@@ -286,5 +272,178 @@ static inline void* jmap_direct_input_impl(size_t size, void *value) {
         jmap.print_array_err(__FILE__, __LINE__); \
         return EXIT_FAILURE; \
     }
+
+#define JMAP_GENERIC_DECLARE(array, elem)                     \
+({                                                                     \
+    union { char c; int i; float f; double d; long l; unsigned long ul; \
+            short s; unsigned short us; unsigned int ui;} _tmp_union; \
+                                                                        \
+    _Generic((elem),                                                    \
+        char: (_tmp_union.c = (elem), &(_tmp_union.c)),                 \
+        int: (_tmp_union.i = (elem), &(_tmp_union.i)),                  \
+        float: (_tmp_union.f = (elem), &(_tmp_union.f)),                \
+        double: (_tmp_union.d = (elem), &(_tmp_union.d)),               \
+        long: (_tmp_union.l = (elem), &(_tmp_union.l)),                 \
+        unsigned long: (_tmp_union.ul = (elem), &(_tmp_union.ul)),      \
+        short: (_tmp_union.s = (elem), &(_tmp_union.s)),                \
+        unsigned short: (_tmp_union.us = (elem), &(_tmp_union.us)),     \
+        unsigned int: (_tmp_union.ui = (elem), &(_tmp_union.ui))        \
+    );                                                                  \
+})
+
+
+#define JMAP_GENERIC_MAP_0(hashmap) NULL
+#define JMAP_GENERIC_MAP_1(hashmap,a) JMAP_GENERIC_DECLARE(hashmap,a), JMAP_GENERIC_MAP_0(hashmap)
+#define JMAP_GENERIC_MAP_2(hashmap,a,b) JMAP_GENERIC_DECLARE(hashmap,a), JMAP_GENERIC_MAP_1(hashmap,b)
+#define JMAP_GENERIC_MAP_3(hashmap,a,b,c) JMAP_GENERIC_DECLARE(hashmap,a), JMAP_GENERIC_MAP_2(hashmap,b,c)
+#define JMAP_GENERIC_MAP_4(hashmap,a,b,c,d) JMAP_GENERIC_DECLARE(hashmap,a), JMAP_GENERIC_MAP_3(hashmap,b,c,d)
+#define JMAP_GENERIC_MAP_5(hashmap,a,b,c,d,e) JMAP_GENERIC_DECLARE(hashmap,a), JMAP_GENERIC_MAP_4(hashmap,b,c,d,e)
+#define JMAP_GENERIC_MAP_6(hashmap,a,b,c,d,e,f) JMAP_GENERIC_DECLARE(hashmap,a), JMAP_GENERIC_MAP_5(hashmap,b,c,d,e,f)
+#define JMAP_GENERIC_MAP_7(hashmap,a,b,c,d,e,f,g) JMAP_GENERIC_DECLARE(hashmap,a), JMAP_GENERIC_MAP_6(hashmap,b,c,d,e,f,g)
+#define JMAP_GENERIC_MAP_8(hashmap,a,b,c,d,e,f,g,h) JMAP_GENERIC_DECLARE(hashmap,a), JMAP_GENERIC_MAP_7(hashmap,b,c,d,e,f,g,h)
+#define JMAP_GENERIC_MAP_9(hashmap,a,b,c,d,e,f,g,h,i) JMAP_GENERIC_DECLARE(hashmap,a), JMAP_GENERIC_MAP_8(hashmap,b,c,d,e,f,g,h,i)
+#define JMAP_GENERIC_MAP_10(hashmap,a,b,c,d,e,f,g,h,i,j) JMAP_GENERIC_DECLARE(hashmap,a), JMAP_GENERIC_MAP_9(hashmap,b,c,d,e,f,g,h,i,j)
+
+
+#define GET_MACRO(_0,_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,NAME,...) NAME
+
+#define JMAP_GENERIC_MAP(hashmap, ...) \
+    GET_MACRO(_0 __VA_OPT__(,) ##__VA_ARGS__, \
+        JMAP_GENERIC_MAP_10,JMAP_GENERIC_MAP_9,JMAP_GENERIC_MAP_8,JMAP_GENERIC_MAP_7,JMAP_GENERIC_MAP_6, \
+        JMAP_GENERIC_MAP_5,JMAP_GENERIC_MAP_4,JMAP_GENERIC_MAP_3,JMAP_GENERIC_MAP_2,JMAP_GENERIC_MAP_1,JMAP_GENERIC_MAP_0) \
+    (hashmap __VA_OPT__(,) ##__VA_ARGS__)
+
+
+#define jmap_print_hashmap_err(file, line) jmap.print_array_err(file, line)
+#define jmap_print(hashmap) jmap.print(hashmap)
+/**
+ * @brief Initializes the JMAP structure.
+ * @param hashmap Pointer to the JMAP structure to initialize.
+ * @param elem_size Size of the elements to be stored in the JMAP.
+ * @param imp structure that contains the pointer to the user function implementations.
+ */
+#define jmap_init(hashmap, elem_size, data_type, imp) jmap.init(hashmap, elem_size, data_type, imp)
+#define jmap_init_preset(preset) jmap.init_preset(preset)
+/**
+ * @brief Inserts a key-value pair into the JMAP.
+ * @param hashmap Pointer to the JMAP structure.
+ * @param key The key to insert.
+ * @param value Pointer to the value to insert.
+ */
+#define jmap_put(hashmap, key, value) jmap.put(hashmap, key, JMAP_GENERIC_DECLARE(hashmap, value))
+/**
+ * @brief Retrieves a value by its key from the JMAP.
+ * @param hashmap Pointer to the JMAP structure.
+ * @param key The key to retrieve.
+ * @return Pointer to element. Do NOT free.
+ */
+#define jmap_get(hashmap, key) jmap.get(hashmap, key)
+/**
+ * @brief Empties the JMAP, removing all key-value pairs.
+ * @param hashmap Pointer to the JMAP structure.
+ */
+#define jmap_clear(hashmap) jmap.clear(hashmap)
+/**
+ * @brief Resizes the JMAP to a new length.
+ * @note The new length must be a power of 2 and greater than the current length.
+ *       This is to ensure that the hash table can be resized correctly.
+ * @param hashmap Pointer to the JMAP structure.
+ * @param new_length The new length for the JMAP.
+ */
+#define jmap_resize(hashmap, new_length) jmap.resize(hashmap, new_length)
+/**
+ * @brief Clones the JMAP structure.
+ * @param hashmap Pointer to the JMAP structure to clone.
+ * @return Cloned JMAP
+ */
+#define jmap_clone(hashmap) jmap.clone(hashmap)
+/**
+ * @brief Checks if a key exists in the JMAP.
+ * @param hashmap Pointer to the JMAP structure.
+ * @param key The key to check.
+ * @return boolean: true if key exists, false otherwise.
+ */
+#define jmap_contains_key(hashmap, key) jmap.contains_key(hashmap, key)
+/**
+ * @brief Returns an hashmap of keys in the JMAP.
+ * @param hashmap Pointer to the JMAP structure.
+ * @return Pointer to char*. The keys that are dynamically allocated and should be freed by the caller.
+ */
+#define jmap_get_keys(hashmap) jmap.get_keys(hashmap)
+/**
+ * @brief Checks if a value exists in the JMAP.
+ * @param hashmap Pointer to the JMAP structure.
+ * @param value Pointer to the value to check.
+ * @return boolean: true if value exists, false otherwise.
+ */
+#define jmap_contains_value(hashmap, value) jmap.contains_value(hashmap, JMAP_GENERIC_DECLARE(hashmap, value))
+/**
+ * @brief Returns an hashmap of values in the JMAP.
+ * @param hashmap Pointer to the JMAP structure.
+ * @return Pointer to the first value of a heap allocated hashmap, containing all values.
+ */
+#define jmap_get_values(hashmap) jmap.get_values(hashmap)
+/**
+ * @brief Iterates over each key-value pair in the JMAP and applies a callback function.
+ * @param hashmap Pointer to the JMAP structure.
+ * @param callback Function to call for each key-value pair.
+ * @param ctx Context pointer passed to the callback function.
+ */
+#define jmap_for_each(hashmap, callback, ctx) jmap.for_each(hashmap, callback, ctx)
+/**
+ * @brief Checks if the JMAP is empty.
+ * @param hashmap Pointer to the JMAP structure.
+ * @return boolea: true if JMAP empty, false otherwise.
+ */
+#define jmap_is_empty(hashmap) jmap.is_empty(hashmap)
+/**
+ * @brief Puts a key-value pair into the JMAP if the key does not already exist.
+ * @param hashmap Pointer to the JMAP structure.
+ * @param key The key to insert.
+ * @param value Pointer to the value to insert.
+ */
+#define jmap_put_if_absent(hashmap, key, value) jmap.put_if_absent(hashmap, key, JMAP_GENERIC_DECLARE(hashmap, value))
+/**
+ * @brief Removes a key-value pair from the JMAP.
+ * @param hashmap Pointer to the JMAP structure.
+ * @param key The key to remove.
+ */
+#define jmap_remove(hashmap, key) jmap.remove(hashmap, key)
+/**
+ * @brief Removes a key-value pair from the JMAP if the value matches.
+ * @param hashmap Pointer to the JMAP structure.
+ * @param key The key to check and remove.
+ * @param value The value to match for removal.
+ */
+#define jmap_remove_if_value_match(hashmap, key, value) jmap.remove_if_value_match(hashmap, key, JMAP_GENERIC_DECLARE(hashmap, value))
+/**
+ * @brief Removes a key-value pair from the JMAP if the value does not match.
+ * @param hashmap Pointer to the JMAP structure.
+ * @param key The key to check and remove.
+ * @param value The value to not match for removal.
+ */
+#define jmap_remove_if_value_not_match(hashmap, key, value) jmap.remove_if_value_not_match(hashmap, key, JMAP_GENERIC_DECLARE(hashmap, value))
+/**
+ * @brief Removes all key-value pairs that match a predicate function.
+ * @param hashmap Pointer to the JMAP structure.
+ * @param predicate Function to determine if a key-value pair should be removed.
+ * @param ctx Context pointer passed to the predicate function.
+ */
+#define jmap_remove_if(hashmap, predicate, ctx) jmap.remove_if(hashmap, predicate, ctx)
+/**
+ * @brief Frees the JMAP structure and its resources.
+ * @param hashmap Pointer to the JMAP structure to free.
+ */
+#define jmap_free(hashmap) jmap.free(hashmap)
+/**
+ * @brief Sorts the JMAP based on a comparison function.
+ * @param hashmap Pointer to the JMAP structure.
+ * @param keys Pointer to hashmap of char*. Will point to keys.
+ * @param values Pointer to hashmap of element. Will point to valius.
+ * @param compare Function to compare two key-value pairs.
+ * @param ctx Context pointer passed to the comparison function.
+ */
+#define jmap_to_sort(hashmap, keys, values) jmap.to_sort(hashmap, keys, values)
+
 
 #endif
