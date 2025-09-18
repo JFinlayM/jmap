@@ -36,29 +36,29 @@ make
 ## Quick Start
 
 ```c
-#include <jmap.h>
+#include "../inc/jmap.h"
 #include <stdio.h>
 
 int main() {
     
     // Initialize
-    JMAP map = jmap.init_preset(JMAP_INT_PRESET);
+    JMAP map = jmap_init_preset(JMAP_INT_PRESET);
     JMAP_CHECK_RET_RETURN;
     
     // Add elements
-    jmap.put(&map, "age", JMAP_DIRECT_INPUT(int, 25));
+    jmap_put(&map, "age", 25);
     JMAP_CHECK_RET_RETURN;
     
-    jmap.put(&map, "score", JMAP_DIRECT_INPUT(int, 100));
+    jmap_put(&map, "score", 100);
     JMAP_CHECK_RET_RETURN;
     
     // Get value
-    int ret = *(int*)jmap.get(&map, "age");
+    int ret = *(int*)jmap_get(&map, "age");
     JMAP_CHECK_RET_RETURN;
     printf("Age: %d\n", ret);
     
-    jmap.print(&map);
-    jmap.free(&map);
+    jmap_print(&map);
+    jmap_free(&map);
     return 0;
 }
 ```
@@ -70,6 +70,8 @@ JMAP [size: 2, capacity: 16, load factor:0.75] =>
 {7, age -> 25 }
 {8, score -> 100 }
 ```
+
+In the previous example, the preset JMAP_INT_PRESET is used, so you can use macros and not directly functions so you don't need to use JMAP_DIRECT_INPUT. Please note that the macros should only be used for maps using a preset (except STRING) for now.
 
 ## Core Functions
 
@@ -107,8 +109,9 @@ Set these before using related functions:
 ```c
 JMAP_USER_CALLBACK_IMPLEMENTATION imp;
 imp.print_element_callback = print_element_array_callback;
-imp.element_to_string = element_to_string_array_callback;
-imp.is_equal = is_equal_array_callback;
+imp.element_to_string_callback = element_to_string_array_callback;
+imp.is_equal_callback = is_equal_array_callback;
+imp.copy_elem_callback = copy_elem_func;      // For copy override. MANDATORY when storing pointers (Example : see `jmap_string.c` in `src/jmap_presets`)
 ```
 
 ## Override callbacks
@@ -118,7 +121,6 @@ There is some functions that can be overriden. Maybe more will be added later:
 JMAP_USER_OVERRIDE_IMPLEMENTATION imp;
 imp.print_error_override = error_func;        // For error printing
 imp.print_array_override = print_array_func;  // For print() override
-imp.copy_elem_override = copy_elem_func;      // For copy override. MANDATORY when storing pointers (Example : strdup for char*)
 imp.compare_pairs_override = compare_pairs_func; // By default, the keys of pairs are compared
 ```
 

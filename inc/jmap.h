@@ -50,11 +50,11 @@ typedef struct JMAP_USER_CALLBACK_IMPLEMENTATION {
     // Function to print an element. This function is mandatory if you want to use the jmap.print function.
     void (*print_element_callback)(const void* value);
     // Function to convert an element to a string. This function is NOT mandatory but can be useful for functions like join.
-    char *(*element_to_string)(const void* value);
+    char *(*element_to_string_callback)(const void* value);
     // Function to check if two elements are equal. This function is mandatory if you want to use the jmap.contains, jmap.find_first, jmap.indexes_of functions.
-    bool (*is_equal)(const void* value_a, const void* value_b);
+    bool (*is_equal_callback)(const void* value_a, const void* value_b);
     // This function is MANDATORY if storing pointers (Example : strdup for char*).
-    void *(*copy_elem_override)(const void* value);    
+    void *(*copy_elem_callback)(const void* value);    
 } JMAP_USER_CALLBACK_IMPLEMENTATION;
 
 typedef struct JMAP_USER_OVERRIDE_IMPLEMENTATION {
@@ -88,6 +88,11 @@ typedef struct JMAP {
 
 typedef struct JMAP_INTERFACE {
     void (*print_array_err)(const char *file, int line);
+    /**
+     * @brief Prints all elements. How the element are printed and how the map is printed can be changed by implementing overrides at initialisation.
+     *
+     * @param hashmap Pointer to hasmap.
+     */
     void (*print)(const JMAP *self);
     /**
      * @brief Initializes the JMAP structure.
@@ -96,6 +101,11 @@ typedef struct JMAP_INTERFACE {
      * @param imp structure that contains the pointer to the user function implementations.
      */
     void (*init)(JMAP *self, size_t elem_size, JMAP_DATA_TYPE data_type, JMAP_USER_CALLBACK_IMPLEMENTATION imp);
+    /**
+     * @brief Initializes the JMAP structure.
+     * @note By using this and using macro and not functions direcly, you do not have to use `JMAP_DIRECT_INPUT` (except for string preset)
+     * @param preset The type preset you want to store in JMAP.
+     */
     JMAP (*init_preset)(JMAP_TYPE_PRESET preset);
     /**
      * @brief Inserts a key-value pair into the JMAP.
@@ -315,6 +325,11 @@ extern JMAP_RETURN jmap_last_error_trace;
 
 
 #define jmap_print_hashmap_err(file, line) jmap.print_array_err(file, line)
+/**
+ * @brief Prints all elements. How the element are printed and how the map is printed can be changed by implementing overrides at initialisation.
+ *
+ * @param hashmap Pointer to hasmap.
+ */
 #define jmap_print(hashmap) jmap.print(hashmap)
 /**
  * @brief Initializes the JMAP structure.
@@ -323,6 +338,11 @@ extern JMAP_RETURN jmap_last_error_trace;
  * @param imp structure that contains the pointer to the user function implementations.
  */
 #define jmap_init(hashmap, elem_size, data_type, imp) jmap.init(hashmap, elem_size, data_type, imp)
+/**
+ * @brief Initializes the JMAP structure.
+ * @note By using this and using macro and not functions direcly, you do not have to use `JMAP_DIRECT_INPUT` (except for string preset)
+ * @param preset The type preset you want to store in JMAP.
+ */
 #define jmap_init_preset(preset) jmap.init_preset(preset)
 /**
  * @brief Inserts a key-value pair into the JMAP.

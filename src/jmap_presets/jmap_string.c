@@ -40,9 +40,9 @@ JMAP create_map_string(void){
     JMAP map;
     JMAP_USER_CALLBACK_IMPLEMENTATION imp;
     imp.print_element_callback = print_element_array_callback;
-    imp.element_to_string = element_to_string_array_callback;
-    imp.is_equal = is_equal_array_callback;
-    imp.copy_elem_override = copy_elem_override;
+    imp.element_to_string_callback = element_to_string_array_callback;
+    imp.is_equal_callback = is_equal_array_callback;
+    imp.copy_elem_callback = copy_elem_override;
     jmap.init(&map, sizeof(char*), JMAP_TYPE_POINTER, imp);
     return map;
 }

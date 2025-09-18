@@ -7,9 +7,9 @@ int main(void){
     JMAP_CHECK_RET;
 
     // Insert 10 values
+    char *key = (char*)malloc(6*sizeof(char));
+    char *value = (char*)malloc(8*sizeof(char));
     for (int i = 1; i <= 10; i++) {
-        char *key = (char*)malloc(6*sizeof(char));
-        char *value = (char*)malloc(8*sizeof(char));
         snprintf(key, 6, "key%d", i);
         snprintf(value, 8, "value%d", i);
         jmap.put(&map, key, &value);
@@ -18,6 +18,8 @@ int main(void){
         printf("Inserted %s -> %s | size=%zu capacity=%zu\n", 
                key, value, map._length, map._capacity);
     }
+    free(key);
+    free(value);
 
     // Retrieve and print them
     printf("\n=== Retrieving values ===\n");

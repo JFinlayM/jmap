@@ -38,7 +38,7 @@ int main(void) {
     // Initialize the map with int values
     JMAP_USER_CALLBACK_IMPLEMENTATION imp;
     imp.print_element_callback = print_element_callback;
-    imp.is_equal = is_equal_callback;
+    imp.is_equal_callback = is_equal_callback;
     jmap.init(&map, sizeof(int), JMAP_TYPE_VALUE, imp);
     JMAP_CHECK_RET_RETURN;
 

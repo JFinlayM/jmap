@@ -24,12 +24,29 @@ static inline void* memcpy_elem(JMAP *self, void *__restrict__ __dest, const voi
 
     if (self->_data_type == JMAP_TYPE_VALUE) {
         ret = memcpy(__dest, __elem, self->_elem_size * __count);
-    } else if (self->_data_type == JMAP_TYPE_POINTER){
+    } else if (self->_data_type == JMAP_TYPE_POINTER) {
         for (size_t i = 0; i < __count; i++) {
             const void *src_elem = (const char*)__elem + i * self->_elem_size;
-            if (!src_elem || !(*(void**)src_elem)) continue;
-            const void *src_elem_copy = self->user_callbacks.copy_elem_override(src_elem);
-            memcpy((char*)__dest + i * self->_elem_size, src_elem_copy, self->_elem_size);
+            void *dest_elem = (char *)__dest + i * self->_elem_size;
+
+            if (!src_elem || !(*(void**)src_elem)) {
+                memset(dest_elem, 0, self->_elem_size);
+                continue;
+            }
+
+            if (!self->user_callbacks.copy_elem_callback) {
+                memcpy(dest_elem, src_elem, self->_elem_size);
+                continue;
+            }
+
+            const void *tmp = self->user_callbacks.copy_elem_callback(src_elem);
+            if (!tmp) {
+                memset(dest_elem, 0, self->_elem_size);
+                continue;
+            }
+
+            memcpy(dest_elem, tmp, self->_elem_size);
+            free((void*)tmp);
         }
     }
     return ret;
@@ -73,6 +90,7 @@ static void map_free(JMAP *self) {
         for (size_t i = 0; i < self->_capacity; i++){
             void **ptr = self->data + i*self->_elem_size;
             if (*ptr) free(*ptr);
+            
         }
     }
     if (self->data != NULL) {
@@ -81,7 +99,8 @@ static void map_free(JMAP *self) {
     }
     if (self->keys != NULL) {
         for (size_t i = 0; i < self->_capacity; i++) {
-            free(self->keys[i]);
+            if (self->keys[i])
+                free(self->keys[i]);
         }
         free(self->keys);
         self->keys = NULL;
@@ -137,9 +156,9 @@ static void map_init(JMAP *map, size_t _elem_size, JMAP_DATA_TYPE data_type, JMA
     
 
     map->user_callbacks.print_element_callback = NULL;
-    map->user_callbacks.is_equal = NULL;
-    map->user_callbacks.element_to_string = NULL;
-    map->user_callbacks.copy_elem_override = NULL;
+    map->user_callbacks.is_equal_callback = NULL;
+    map->user_callbacks.element_to_string_callback = NULL;
+    map->user_callbacks.copy_elem_callback = NULL;
     map->user_overrides.print_error_override = NULL;
     map->user_overrides.print_array_override = NULL;
     map->user_overrides.compare_pairs_override = NULL;
@@ -376,7 +395,7 @@ static bool map_contains_value(const JMAP *self, const void *value) {
     reset_error_trace();
 
     for (size_t i = 0; i < self->_capacity; i++) {
-        if (self->keys[i] != NULL && (self->user_callbacks.is_equal ? self->user_callbacks.is_equal((char*)self->data + i * self->_elem_size, value) : (memcmp((char*)self->data + i * self->_elem_size, value, self->_elem_size) == 0)))  {
+        if (self->keys[i] != NULL && (self->user_callbacks.is_equal_callback ? self->user_callbacks.is_equal_callback((char*)self->data + i * self->_elem_size, value) : (memcmp((char*)self->data + i * self->_elem_size, value, self->_elem_size) == 0)))  {
             return true;
         }
     }
@@ -541,7 +560,7 @@ static void map_remove_if_value_match(JMAP *self, const char *key, const void *v
     if (exists) {
         void *get = map_get(self, key);
         if (jmap_last_error_trace.has_error) return;
-        if ((bool)self->user_callbacks.is_equal ? !self->user_callbacks.is_equal(get, value) : (memcmp(get, value, self->_elem_size) != 0)) {
+        if ((bool)self->user_callbacks.is_equal_callback ? !self->user_callbacks.is_equal_callback(get, value) : (memcmp(get, value, self->_elem_size) != 0)) {
             return create_return_error(self, JMAP_INVALID_ARGUMENT, "Values does not match for key \"%s\"", key);
         }
         memset((char*)self->data + map_key_to_index(self, key) * self->_elem_size, 0, self->_elem_size);
@@ -579,7 +598,7 @@ static void map_remove_if_value_not_match(JMAP *self, const char *key, const voi
     if (exists) {
         void *get = map_get(self, key);
         if (jmap_last_error_trace.has_error) return;
-        if ((bool)self->user_callbacks.is_equal ? self->user_callbacks.is_equal(get, value) : (memcmp(get, value, self->_elem_size) == 0)) {
+        if ((bool)self->user_callbacks.is_equal_callback ? self->user_callbacks.is_equal_callback(get, value) : (memcmp(get, value, self->_elem_size) == 0)) {
             return create_return_error(self, JMAP_INVALID_ARGUMENT, "Values match for key \"%s\"", key);
         }
         memset((char*)self->data + map_key_to_index(self, key) * self->_elem_size, 0, self->_elem_size);
